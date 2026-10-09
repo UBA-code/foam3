@@ -55,9 +55,18 @@ foam.CLASS({
     {
       name: 'description',
       expression: function(data$body, data$toastMessage, data$toastSubMessage) {
-        return data$body ||
-          ( data$toastMessage +
-            ( data$toastSubMessage ? "<br>"+data$toastSubMessage : "" ) );
+        var args = this.data.emailArgs;
+        if ( args["content"] )
+          return args["content"].replace("\\n", "");
+
+        if ( args["toastMessage"] )
+          return args["toastMessage"] +
+          ( args["toastSubMessage"] ? "<br>" + args["toastSubMessage"] : "" );
+
+        return "";
+      //   return data$body ||
+      //     ( data$toastMessage +
+      //       ( data$toastSubMessage ? "<br>"+data$toastSubMessage : "" ) );
       }
     }
   ],

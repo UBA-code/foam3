@@ -16,11 +16,13 @@ foam.CLASS({
     'foam.core.auth.LanguageId',
     'foam.core.logger.Loggers',
     'foam.dao.DAO',
+    'foam.i18n.TranslationService',
     'foam.lang.X',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
     'static foam.mlang.MLang.OR',
-    'foam.util.SafetyUtil'
+    'foam.util.SafetyUtil',
+    'java.util.Map'
   ],
 
   methods: [
@@ -55,6 +57,8 @@ foam.CLASS({
               EQ(NotificationLocaleTemplate.NAME, notif.getLocaleTemplateName()),
               EQ(NotificationLocaleTemplate.LANGUAGE, code)
             ));
+        } else {
+          code = id;
         }
         // fallback to english
         if ( template == null &&
@@ -71,7 +75,32 @@ foam.CLASS({
           return notif;
         }
 
+        notif = translateArgs(x, code.toString(), notif);
         return template.apply(x, notif);
+      `
+    },
+    {
+      // make part of EmailTemplateEngine
+      name: 'translateArgs',
+      args: 'X x, String locale , Notification notif',
+      type: 'Notification',
+      javaCode: `
+      TranslationService ts = (TranslationService) x.get("translationService");
+      Map<String, String> translationMapping = notif.getLocaleTranslationMapping();
+      if ( translationMapping == null ||
+           translationMapping.size() == 0 )
+        return notif;
+
+      Map<String, String> emailArgs = notif.getEmailArgs();
+      for ( String key : translationMapping.keySet() ) {
+        Object value = emailArgs.get(key);
+        if ( value == null )
+          continue;
+        String id = translationMapping.get(key);
+        String translated = ts.getTranslation(locale, id, value.toString());
+        emailArgs.put(key, translated);
+      }
+      return notif;
       `
     }
   ]
