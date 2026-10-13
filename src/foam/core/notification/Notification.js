@@ -298,7 +298,7 @@ foam.CLASS({
     },
     {
       class: 'Map',
-      name: 'localeTranslationMapping',
+      name: 'localeTranslationMappings',
       storageTransient: true,
       visibility: 'HIDDEN'
     }

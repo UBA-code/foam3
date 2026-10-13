@@ -17,12 +17,28 @@ foam.CLASS({
     'foam.core.logger.Loggers',
     'foam.dao.DAO',
     'foam.i18n.TranslationService',
+    'foam.lang.Currency',
     'foam.lang.X',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
     'static foam.mlang.MLang.OR',
     'foam.util.SafetyUtil',
     'java.util.Map'
+  ],
+
+  constants: [
+    {
+      name: 'CURRENCY_TYPE',
+      type: 'String',
+      value: 'CURRENCY_TYPE'
+    },
+    // TODO: Number - requires precision for formatting,
+    // see foam.u2.FloatView
+    // {
+    //   name: 'NUMBER_TYPE',
+    //   type: 'String',
+    //   value: 'NUMBER_TYPE'
+    // }
   ],
 
   methods: [
@@ -75,6 +91,8 @@ foam.CLASS({
           return notif;
         }
 
+        x = x.put("locale.language", code.toString());
+
         notif = translateArgs(x, code.toString(), notif);
         return template.apply(x, notif);
       `
@@ -86,21 +104,55 @@ foam.CLASS({
       type: 'Notification',
       javaCode: `
       TranslationService ts = (TranslationService) x.get("translationService");
-      Map<String, String> translationMapping = notif.getLocaleTranslationMapping();
-      if ( translationMapping == null ||
-           translationMapping.size() == 0 )
+      Map<String, String> translationMappings = notif.getLocaleTranslationMappings();
+      if ( translationMappings == null ||
+           translationMappings.size() == 0 )
         return notif;
 
       Map<String, String> emailArgs = notif.getEmailArgs();
-      for ( String key : translationMapping.keySet() ) {
+      for ( String key : translationMappings.keySet() ) {
         Object value = emailArgs.get(key);
         if ( value == null )
           continue;
-        String id = translationMapping.get(key);
-        String translated = ts.getTranslation(locale, id, value.toString());
-        emailArgs.put(key, translated);
+        String id = translationMappings.get(key);
+        if ( id == null )
+          continue;
+        if ( id.equals(CURRENCY_TYPE) )
+          emailArgs.put(key, formatCurrency(x, emailArgs, key, value.toString()));
+        else
+          emailArgs.put(key, ts.getTranslation(locale, id, value.toString()));
       }
       return notif;
+      `
+    },
+    {
+      name: 'formatCurrency',
+      args: 'X x, Map emailArgs, String key, String value',
+      type: 'String',
+      javaThrows: ['NumberFormatException'],
+      javaCode: `
+        Object code = emailArgs.get(key+"Currency");
+        if ( code == null )
+          return value;
+
+        Currency curr = (Currency) ((DAO) x.get("currencyDAO")).find(code.toString());
+        if ( curr == null ) {
+          foam.core.logger.Loggers.logger(x, this).warning("Currency not found", code, key);
+          return value;
+        }
+
+        long amount = 0L;
+        try {
+          if ( value.indexOf(".") > 0 )  // DoubelUnitValue
+            amount = curr.minorAmount(Double.parseDouble(value));
+          else
+            amount = Long.parseLong(value);
+          String result = curr.format(x, amount, true, false);
+          return result;
+        } catch (NumberFormatException e) {
+          foam.core.logger.Loggers.logger(x, this).error("Failed to format currency value", key, curr.toString(), value);
+          return value;
+        }
       `
     }
   ]
