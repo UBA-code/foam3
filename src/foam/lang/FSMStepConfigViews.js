@@ -489,7 +489,12 @@ foam.CLASS({
   ],
 
   requires: [
-    'foam.log.LogLevel'
+    'foam.comics.v2.userfeedback.UserFeedback',
+    'foam.comics.v2.userfeedback.UserFeedbackAlertType',
+    'foam.comics.v2.userfeedback.UserFeedbackAware',
+    'foam.comics.v2.userfeedback.UserFeedbackException',
+    'foam.comics.v2.userfeedback.UserFeedbackStatus',
+    'foam.log.LogLevel',
   ],
 
   css: `
@@ -905,13 +910,13 @@ foam.CLASS({
         var logLevel = this.LogLevel.WARN;
         if ( foam.box.RPCErrorMessage.isInstance(e) )
           e = e.data
-        if ( foam.comics.v2.userfeedback.UserFeedbackException.isInstance(e.exception) )
+        if ( this.UserFeedbackException.isInstance(e.exception) )
           e = e.exception;
-        if ( e && foam.comics.v2.userfeedback.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
+        if ( e && this.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
           var feedback = e.userFeedback;
           errorMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+feedback.message, feedback.message, feedback.messageTemplateMap);
           subMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+feedback.subMessage, feedback.subMessage, feedback.messageTemplateMap);
-          if ( feedback.status != UserFeedbackStatus.ERROR )
+          if ( feedback.status != this.UserFeedbackStatus.ERROR )
             logLevel = this.LogLevel.INFO;
         } else {
           errorMessage = e.getTranslation?.() ?? e.message ?? e.cls_.name;
@@ -1009,13 +1014,13 @@ foam.CLASS({
               var logLevel = this.LogLevel.WARN;
               if ( foam.box.RPCErrorMessage.isInstance(e) )
                 e = e.data
-              if ( foam.comics.v2.userfeedback.UserFeedbackException.isInstance(e.exception) )
+              if ( this.UserFeedbackException.isInstance(e.exception) )
                 e = e.exception;
-              if ( e && foam.comics.v2.userfeedback.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
-                var currentFeedback = e.userFeedback;
-                errorMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
-                subMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+currentFeedback.subMessage, currentFeedback.subMessage, currentFeedback.messageTemplateMap);
-                if ( feedback.status != UserFeedbackStatus.ERROR )
+              if ( e && this.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
+                var feedback = e.userFeedback;
+                errorMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+feedback.message, feedback.message, feedback.messageTemplateMap);
+                subMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+feedback.subMessage, feedback.subMessage, feedback.messageTemplateMap);
+                if ( feedback.status != this.UserFeedbackStatus.ERROR )
                   logLevel = this.LogLevel.INFO;
               } else {
                 errorMessage = e.getTranslation?.() ?? e.message ?? e.cls_.name;
