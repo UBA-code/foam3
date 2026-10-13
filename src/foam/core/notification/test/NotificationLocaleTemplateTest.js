@@ -140,7 +140,7 @@ foam.CLASS({
       name = "Currency";
       map.clear();
       map.put("amount", "1234.56");
-      map.put("amountCurrency", "MAD"); // uses french numbering format
+      map.put("amountCurrency", "MAD"); 
       localeMappings.put("amount", NotificationLocaleTemplateSupport.CURRENCY_TYPE);
       notification = new Notification();
       notification.setLocaleTemplateName(notificationLocaleTemplate);
