@@ -91,6 +91,7 @@ foam.CLASS({
           return notif;
         }
 
+        // required for currency formatting - see Currency.js Currency.delimeter
         x = x.put("locale.language", code.toString());
 
         notif = translateArgs(x, code.toString(), notif);
