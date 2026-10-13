@@ -79,6 +79,8 @@ p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.SAVE.label", target: "Enregistrer" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.CANCEL_EDIT.label", target: "Annuler" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.DELETE.label", target: "Supprimer" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.ERROR_MSG", target: "Quelque chose a mal tourné" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.comics.v3.DetailView.UPDATED", target: "Mise à jour" })
 
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.ActionView.CONFIRM", target: "Confirmer"})
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.DELETE.label", target: "Supprimer" })
