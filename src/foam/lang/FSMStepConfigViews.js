@@ -1007,7 +1007,8 @@ foam.CLASS({
           if ( this.wizardSteps[this.currentStepIndex].isInitial && ! this.data.id ) {
             var currentStatus = this.data[this.fsmPropertyName];
             try {
-              this.data = await this.dao.put(this.data);
+              if ( await this.wizardSteps[this.currentStepIndex].canTransitionTo(this.wizardSteps[this.currentStepIndex+1], this.data) )
+                this.data = await this.dao.put(this.data);
             } catch (e) {
               var errorMessage;
               var subMessage;
