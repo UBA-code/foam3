@@ -1009,6 +1009,8 @@ foam.CLASS({
             try {
               if ( await this.wizardSteps[this.currentStepIndex].canTransitionTo(this.wizardSteps[this.currentStepIndex+1], this.data) )
                 this.data = await this.dao.put(this.data);
+              else
+                return this.data;
             } catch (e) {
               var errorMessage;
               var subMessage;
