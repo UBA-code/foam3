@@ -488,6 +488,15 @@ foam.CLASS({
     'as fsmStepWizardView'
   ],
 
+  requires: [
+    'foam.comics.v2.userfeedback.UserFeedback',
+    'foam.comics.v2.userfeedback.UserFeedbackAlertType',
+    'foam.comics.v2.userfeedback.UserFeedbackAware',
+    'foam.comics.v2.userfeedback.UserFeedbackException',
+    'foam.comics.v2.userfeedback.UserFeedbackStatus',
+    'foam.log.LogLevel',
+  ],
+
   css: `
     << {
       display: flex;
@@ -897,19 +906,25 @@ foam.CLASS({
 
       } catch (e) {
         var errorMessage;
+        var subMessage = '';
+        var logLevel = this.LogLevel.WARN;
         if ( foam.box.RPCErrorMessage.isInstance(e) )
           e = e.data
-        if ( foam.comics.v2.userfeedback.UserFeedbackException.isInstance(e.exception) )
+        if ( this.UserFeedbackException.isInstance(e.exception) )
           e = e.exception;
-        if ( e && foam.comics.v2.userfeedback.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
-          var currentFeedback = e.userFeedback;
-          errorMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+currentFeedback.message, currentFeedback.message, currentFeedback.messageTemplateMap);
+        if ( e && this.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
+          var feedback = e.userFeedback;
+          errorMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+feedback.message, feedback.message, feedback.messageTemplateMap);
+          subMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+feedback.subMessage, feedback.subMessage, feedback.messageTemplateMap);
+          if ( feedback.status != this.UserFeedbackStatus.ERROR )
+            logLevel = this.LogLevel.INFO;
         } else {
           errorMessage = e.getTranslation?.() ?? e.message ?? e.cls_.name;
         }
 
-        console.error('Transition failed: ', errorMessage);
-        this.validationErrors = [errorMessage];
+        console.error('Transition failed: ', errorMessage, subMessage);
+        this.validationErrors = [errorMessage, subMessage];
+        this.notify(errorMessage, subMessage, logLevel, true);
 
         // rollback status on error
         this.data[this.fsmPropertyName] = currentStatus;
@@ -990,7 +1005,40 @@ foam.CLASS({
         if ( this.wizardType == 'DEFAULT' ) {
           // If newly created object, save it first to get an id and inital fsm state before advancing to the next step
           if ( this.wizardSteps[this.currentStepIndex].isInitial && ! this.data.id ) {
-            this.data = await this.dao.put(this.data);
+            var currentStatus = this.data[this.fsmPropertyName];
+            try {
+              if ( await this.wizardSteps[this.currentStepIndex].canTransitionTo(this.wizardSteps[this.currentStepIndex+1], this.data) )
+                this.data = await this.dao.put(this.data);
+              else
+                return this.data;
+            } catch (e) {
+              var errorMessage;
+              var subMessage;
+              var logLevel = this.LogLevel.WARN;
+              if ( foam.box.RPCErrorMessage.isInstance(e) )
+                e = e.data
+              if ( this.UserFeedbackException.isInstance(e.exception) )
+                e = e.exception;
+              if ( e && this.UserFeedbackAware.isInstance(e) && e.userFeedback ) {
+                var feedback = e.userFeedback;
+                errorMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.message.'+feedback.message, feedback.message, feedback.messageTemplateMap);
+                subMessage = this.translationService.getTranslation(foam.locale, 'foam.comics.v2.userfeedback.UserFeedback.subMessage.'+feedback.subMessage, feedback.subMessage, feedback.messageTemplateMap);
+                if ( feedback.status != this.UserFeedbackStatus.ERROR )
+                  logLevel = this.LogLevel.INFO;
+              } else {
+                errorMessage = e.getTranslation?.() ?? e.message ?? e.cls_.name;
+              }
+
+              console.error('Transition failed: ', errorMessage, subMessage);
+              this.validationErrors = [errorMessage, subMessage];
+              this.notify(errorMessage, subMessage, logLevel, true);
+
+              // rollback status on error
+              this.data[this.fsmPropertyName] = currentStatus;
+              return this.data;
+            } finally {
+              this.isLoading = false;
+            }
           }
           var nextIndex = this.currentStepIndex + 1;
           if ( nextIndex < this.wizardSteps.length ) {
