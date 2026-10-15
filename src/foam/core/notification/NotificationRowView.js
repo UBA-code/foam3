@@ -74,9 +74,9 @@
 
     messages: [
       { name: 'MARK_AS_READ_MSG',          messageMap: { en: 'Successfully marked as read.', fr: 'Marqué comme lu avec succès.' } },
-      { name: 'FAILED_MARK_AS_READ_MSG',   messageMap: { en: 'Failed to mark as read.', fr: 'Impossible du marquage comme lu.'} },
+      { name: 'FAILED_MARK_AS_READ_MSG',   messageMap: { en: 'Failed to mark as read.', fr: 'Échec du marquage comme lu.' } },
       { name: 'MARK_AS_UNREAD_MSG',        messageMap: { en: 'Successfully marked as unread.', fr: 'Marqué avec succès comme non lu.' } },
-      { name: 'FAILED_MARK_AS_UNREAD_MSG', messageMap: { en: 'Failed to mark as unread.', fr: 'Impossible de marquer comme non lu.' } },
+      { name: 'FAILED_MARK_AS_UNREAD_MSG', messageMap: { en: 'Failed to mark as unread.', fr: 'Échec du marquage comme non lu.' } },
       { name: 'NOTIFICATION_MSG',          message: 'Notification' }
     ],
 
