@@ -94,8 +94,13 @@ foam.CLASS({
         // required for currency formatting - see Currency.js Currency.delimeter
         x = x.put("locale.language", code.toString());
 
-        notif = translateArgs(x, code.toString(), notif);
-        return template.apply(x, notif);
+        try {
+          notif = translateArgs(x, code.toString(), notif);
+          return template.apply(x, notif);
+        } catch (Throwable t) {
+          Loggers.logger(x, this).error(template.getName(), notif.getToastMessage(), notif.getBody(), t);
+          return notif;
+        }
       `
     },
     {
