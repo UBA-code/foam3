@@ -72,7 +72,7 @@ Delay creating notification title and body until final notification user has bee
         EmailTemplateEngine templateEngine = (EmailTemplateEngine) x.get("templateEngine");
         if ( SafetyUtil.isEmpty(notif.getBody()) ) {
           notif.setBody(templateEngine.renderTemplate(x, getBody(), notif.getEmailArgs()).toString());
-          notif.getEmailArgs().put("content", notif.getBody());
+          notif.getEmailArgs().put("body", notif.getBody());
         }
         if ( SafetyUtil.isEmpty(notif.getToastMessage()) ) {
           notif.setToastMessage(templateEngine.renderTemplate(x, getToastMessage(), notif.getEmailArgs()).toString());
