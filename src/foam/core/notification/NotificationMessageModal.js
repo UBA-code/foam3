@@ -54,19 +54,19 @@ foam.CLASS({
     },
     {
       name: 'description',
-      expression: function(data$body, data$toastMessage, data$toastSubMessage) {
-        var args = this.data.emailArgs;
-        if ( args["content"] )
-          return args["content"].replace("\\n", "");
+      expression: function(data$emailArgs, data$body, data$toastMessage, data$toastSubMessage) {
+        var args = data$emailArgs;
+        if ( args["body"] )
+          return args["body"].replaceAll("\\n", "<br>");
 
         if ( args["toastMessage"] )
           return args["toastMessage"] +
           ( args["toastSubMessage"] ? "<br>" + args["toastSubMessage"] : "" );
 
-        return "";
-      //   return data$body ||
-      //     ( data$toastMessage +
-      //       ( data$toastSubMessage ? "<br>"+data$toastSubMessage : "" ) );
+        // fallback to legacy
+        return data$body ||
+          ( data$toastMessage +
+            ( data$toastSubMessage ? "<br>"+data$toastSubMessage : "" ) );
       }
     }
   ],
