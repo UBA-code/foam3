@@ -47,6 +47,8 @@ foam.CLASS({
       args: 'X x, User user, Notification notif',
       type: 'Notification',
       javaCode: `
+      NotificationLocaleTemplate template = null;
+      try {
         if ( SafetyUtil.isEmpty(notif.getLocaleTemplateName()) )
           return notif;
 
@@ -62,7 +64,7 @@ foam.CLASS({
 
         // find by language, code+variant, then code only
         DAO dao = (DAO) x.get("notificationLocaleTemplateDAO");
-        NotificationLocaleTemplate template = (NotificationLocaleTemplate)dao.find(
+        template = (NotificationLocaleTemplate)dao.find(
           AND(
             EQ(NotificationLocaleTemplate.NAME, notif.getLocaleTemplateName()),
             EQ(NotificationLocaleTemplate.LANGUAGE, id)
@@ -94,13 +96,15 @@ foam.CLASS({
         // required for currency formatting - see Currency.js Currency.delimeter
         x = x.put("locale.language", code.toString());
 
-        try {
-          notif = translateArgs(x, code.toString(), notif);
-          return template.apply(x, notif);
-        } catch (Throwable t) {
+        notif = translateArgs(x, code.toString(), notif);
+        return template.apply(x, notif);
+      } catch (Throwable t) {
+        if ( template != null )
           Loggers.logger(x, this).error(template.getName(), notif.getToastMessage(), notif.getBody(), t);
-          return notif;
-        }
+        else
+          Loggers.logger(x, this).error(notif.getToastMessage(), notif.getBody(), t);
+        return notif;
+      }
       `
     },
     {
