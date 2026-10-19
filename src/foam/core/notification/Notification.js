@@ -289,6 +289,18 @@ foam.CLASS({
       name: 'alarm',
       storageTransient: true,
       visibility: 'HIDDEN'
+    },
+    {
+      class: 'String',
+      name: 'localeTemplateName',
+      storageTransient: true,
+      visibility: 'HIDDEN'
+    },
+    {
+      class: 'Map',
+      name: 'localeTranslationMappings',
+      storageTransient: true,
+      visibility: 'HIDDEN'
     }
   ],
 

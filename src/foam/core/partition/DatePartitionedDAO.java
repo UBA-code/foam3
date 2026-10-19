@@ -43,8 +43,14 @@ public class DatePartitionedDAO
     scheme_ = scheme;
   }
 
-  public void setTimeWindow(int days) {
+  public DatePartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty, DatePartitioningScheme scheme, int timeWindow) {
+    this(x, of, dirName, partitionProperty, scheme);
+    timeWindow_ = timeWindow;
+  }
+
+  public DatePartitionedDAO setTimeWindow(int days) {
     timeWindow_ = days;
+    return this;
   }
 
   public int getTimeWindow() {
@@ -269,7 +275,7 @@ public class DatePartitionedDAO
 
   public Object cmd_(X x, Object cmd) {
     if ( DEFAULT_QUERY_CMD.equals(cmd) ) {
-      return ((PropertyInfo) getPartitionProperty()).getName() + " > TODAY-" + (getTimeWindow() /*+ 1*/); // ???: Should we add a day to be safe
+      return ((PropertyInfo) getPartitionProperty()).getName() + " IN RANGE (TODAY-" + (getTimeWindow() /*+ 1*/ + ", TODAY)"); // ???: Should we add a day to be safe
     }
 
     return super.cmd_(x, cmd);

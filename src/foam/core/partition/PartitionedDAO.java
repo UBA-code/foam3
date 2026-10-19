@@ -295,7 +295,7 @@ public class PartitionedDAO
   }
 
   public DAO createDAO(String part) {
-    Loggers.logger(getX(), this).info("Creating partiion " + part);
+    Loggers.logger(getX(), this).info("Creating partition " + part);
 
     String rawPart     = part;
     String journalName = journalNameFor(part);
@@ -576,12 +576,13 @@ public class PartitionedDAO
       journals, rewrite references held by other DAOs (discovered via
       ReferencePropertyInfo when daoKey is given), validate, and archive the
       legacy journal. Delegates to SingleToPartitionMigrator. */
-  public void migrateFrom(X x, String legacyJournalName, String daoKey) {
+  public PartitionedDAO migrateFrom(X x, String legacyJournalName, String daoKey) {
     new SingleToPartitionMigrator().run(x, legacyJournalName, this, daoKey);
+    return this;
   }
 
-  public void migrateFrom(X x, String legacyJournalName) {
-    migrateFrom(x, legacyJournalName, null);
+  public PartitionedDAO migrateFrom(X x, String legacyJournalName) {
+    return migrateFrom(x, legacyJournalName, null);
   }
 
 //  No implementation needed for removeAll_() because it just calls select_().

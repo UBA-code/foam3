@@ -290,6 +290,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
         to do so.
       `,
       javaCode: `
+      // AppConfig can be overridden by both the Theme and the User's Group
       AppConfig appConfig = (AppConfig) ((AppConfig) x.get("appConfig")).fclone();
 
       // We null out the security-relevant entries in the context since we

@@ -19,25 +19,25 @@ foam.CLASS({
   ],
 
   css: `
-    ^ a {
+    << a {
       color: $link;
     }
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
-    ^codeBlock {
+    <<codeBlock {
       background: $backgroundTertiary;
       border-radius: 6px;
       padding: 16px;
       margin: 0;
       text-wrap: auto;
     }
-    ^ .mdHeader:not(:first-child) {
+    << .mdHeader:not(:first-child) {
       margin-top: 2rem;
     }
-    ^ hr {
+    << hr {
       color: $borderDefault;
       margin: 1rem 0 0 0;
       border: 1px solid;
@@ -569,42 +569,40 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
     }
-    ^ButtonToolbar {
+    <<ButtonToolbar {
       display: flex;
       gap: 8px;
       width: 100%;
       flex-wrap: wrap;
       margin-bottom: 8px;
     }
-    ^ButtonToolbar > button + button {
+    <<ButtonToolbar > button + button {
       margin-left: 0 !important;
     }
-    ^separator {
+    <<separator {
       background: $backgroundSecondary;
       width: 1px;
       height: 2em;
       align-self: center;
     }
-    ^tool.foam-u2-ActionView {
+    <<tool.foam-u2-ActionView {
       padding: 6px 10px;
       max-height: unset;
     }
-    ^hintTool {
+    <<hintTool {
       position: relative;
       display: inline-flex;
     }
-    ^hintPopup {
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translate(-50%, -200%);
-      margin-top: 6px;
-      z-index: $z-popup;
-      display: flex;
+    <<hintPopup {
+      position: fixed;
+      inset: auto;
+      margin: 0;
+      visibility: hidden;
+      z-index: 1000;
       gap: 6px;
       padding: 6px;
       background: $white;
@@ -612,7 +610,10 @@ foam.CLASS({
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    ^hintOption {
+    <<hintPopup:popover-open {
+      display: flex;
+    }
+    <<hintOption {
       width: 24px;
       height: 24px;
       border-radius: 4px;
@@ -624,10 +625,10 @@ foam.CLASS({
       justify-content: center;
       padding: 0;
     }
-    ^hintOption:hover {
+    <<hintOption:hover {
       background: $backgroundTertiary;
     }
-    ^hintIcon ^hintIcon svg{
+    <<hintIcon <<hintIcon svg{
       color: $textTertiary;
       fill: currentColor;
       flex: 0 0 6px;
@@ -646,6 +647,7 @@ foam.CLASS({
       name: 'data'
     },
     'editorElement_',
+    'hintButtonElement_',
     {
       class: 'String',
       name: 'lastTextColor',
@@ -713,13 +715,15 @@ foam.CLASS({
           .start(this.INSERT_EXAMPLE, { label: 'Example', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_PERMISSIONED, { label: 'Perm', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_INCLUDE, { label: 'Include', size: 'SMALL' }).addClass(this.myClass('tool')).end()
-          .start() // Hint button
+          .start('div', null, this.hintButtonElement_$) // Hint button
             .addClass(this.myClass('hintTool'))
             .start(this.INSERT_HINT, { label: 'Hint', size: 'SMALL' }).addClass(this.myClass('tool')).end()
-            .add(this.toggleHintPopup$.map(function(show) { // Hint pop-up menu
+            .add(this.toggleHintPopup$.map(function(show) {
               if ( ! show ) return null;
-              return self.E().addClass(self.myClass('hintPopup')).
-                forEach(self.HintCategory.VALUES, function(c) { // Propgate with the enum values
+              var popup = self.E().
+                addClass(self.myClass('hintPopup')).
+                attrs({ popover: 'manual' }).
+                forEach(self.HintCategory.VALUES, function(c) {
                   this.start('button')
                     .addClass(self.myClass('hintOption'))
                     .attrs({ title: c.label })
@@ -736,6 +740,8 @@ foam.CLASS({
                     })
                   .end();
                 });
+              self.positionHintPopup(popup);
+              return popup;
             }))
           .end()
         .end()
@@ -935,6 +941,37 @@ foam.CLASS({
         '<hint category="' + category.name.toLowerCase() + '">\n$TEXT\n</hint>\n',
         'Hint text here...',
         'Hint text here...');
+    },
+
+    function positionHintPopup(popup) {
+      var self = this;
+
+      // Deferred so the popup is in the DOM and has dimensions.
+      setTimeout(function() {
+        var btn = self.hintButtonElement_ && self.hintButtonElement_.el_();
+        var el  = popup.el_();
+        if ( ! btn || ! el ) return;
+
+        if ( el.showPopover ) {
+          el.showPopover();
+        } else {
+          el.style.display = 'flex'; // No top layer; may clip in old browsers.
+        }
+
+        var b = btn.getBoundingClientRect();
+        var p = el.getBoundingClientRect();
+        var m = 8; // Min gap from the viewport edge.
+
+        var left = b.left + b.width / 2 - p.width / 2;
+        left = Math.max(m, Math.min(left, self.window.innerWidth - p.width - m));
+
+        var top = b.top - p.height;
+        if ( top < m ) top = b.bottom; // No room above, flip below.
+
+        el.style.left       = left + 'px';
+        el.style.top        = top + 'px';
+        el.style.visibility = 'visible';
+      }, 0);
     }
   ],
 
@@ -1247,6 +1284,9 @@ foam.CLASS({
           // Defer so this same click doesn't immediately close it.
           setTimeout(function() {
             self.document.addEventListener('click', self.onDocumentClick);
+            self.onDetach(function() {
+              self.document.removeEventListener('click', self.onDocumentClick);
+            });
           }, 0);
         }
       }
