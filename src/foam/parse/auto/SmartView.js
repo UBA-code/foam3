@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css:`
-    ^ {
+    << {
       padding: 4px 0px;
     }
   `,
@@ -122,38 +122,38 @@ foam.CLASS({
 
 //  imports: [ 'suggestText' ],
 
-  constants: { MAX_WIDTH: 60 }, // Max label width in characters
+  constants: { MAX_WIDTH: 50 }, // Max label width in characters
 
   css: `
-    ^ {
+    << {
       color: $textDefault;
       border-radius: 4px;
       padding: 4px 8px;
     }
-    ^label {
+    <<label {
       font-style: normal;
       font-weight: $font-medium;
       line-height: 1.71;
       margin: 0;
     }
-    ^text {
+    <<text {
       color: $textSecondary;
     }
-    ^:hover{
+    <<:hover{
       background-color: $backgroundBrandTertiary;
       cursor: pointer;
     }
 
-    ^property { color: $green400; }
-    ^operator { color: $orange400; }
-    ^value    { color: $blue400; }
-    ^format   { color: $grey400; }
-    ^standard { color: $blue400; }
-    ^custom { color: $orange400; }
-
-    ^calculation { color: $orange400; }
-    ^chart    { color: $blue400; }
-    ^structure { color: $green400; }
+    <<property    { color: $green400; }
+    <<operator    { color: $orange400; }
+    <<value       { color: $blue400; }
+    <<format      { color: $grey400; }
+    <<standard    { color: $blue400; }
+    <<custom      { color: $orange400; }
+    <<function    { color: $purple400; }
+    <<calculation { color: $orange400; }
+    <<chart       { color: $blue400; }
+    <<structure   { color: $green400; }
   `,
 
   properties: [
@@ -166,18 +166,53 @@ foam.CLASS({
       const self  = this;
       const data  = this.data;
 
+      function summary(s) {
+        let trim = false;
+
+        let i = s.indexOf('.');
+
+        if ( i > 15 ) {
+          s = s.substring(0, i);
+          trim = true;
+        }
+
+        i = s.indexOf(', ');
+
+        if ( i > 15 ) {
+          s = s.substring(0, i);
+          trim = true;
+        }
+
+        if ( s.length > self.MAX_WIDTH ) {
+          s = s.substring(0, self.MAX_WIDTH);
+          i = s.lastIndexOf(' ');
+          if ( i > s.length - 10)
+            s = s.substring(0, i);
+          trim = true;
+        }
+
+        if ( trim ) s = s + ' ...';
+
+        return s;
+      }
+
       this.
         addClass().
         start().
           addClass(this.myClass('label')).
           callIfElse(data.tooltip,
             function() {
-              this.start('span').style({fontStyle: 'italic', color: 'gray'}).add(data.tooltip).end();
+              this.start('span').style({
+                fontStyle: 'italic',
+                color: foam.CSS.returnTokenValue('$textSecondary', this.cls_, this.__subContext__)
+              }).add(data.tooltip).end();
             },
             function() {
-              const label = data.label.substring(0, self.MAX_WIDTH) + (data.label.length > self.MAX_WIDTH ? ' ...' : '');
+
+              const label = summary(data.label);
               this.
                 style({cursor: 'pointer'}).
+                call(function() { this.tooltip = data.label; }).
                 add(label || data.text);
               self.on('click', () => self.suggestText(data.text));
             }
@@ -195,7 +230,7 @@ foam.CLASS({
     function renderText() {
       if ( ! this.showText ) return;
 
-      const data  = this.data;
+      const data = this.data;
 
       if ( data.label !== data.text ) {
         this.start().
@@ -234,16 +269,16 @@ foam.CLASS({
   ],
 
   css: `
-    ^suggestions {
+    <<suggestions {
       display: flex;
       flex-direction: column;
       width: 100%;
       gap: 4px;
       overflow-y: auto;
-      z-index: 1000;
+      z-index: $z-popup;
     }
-    ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
-    ^error { border: 1px solid red !important; }
+    <<suggestionSeparator { border-bottom: 1px solid $borderLight; }
+    <<error { border: 1px solid $destructive !important; }
   `,
 
   properties: [
@@ -262,7 +297,8 @@ foam.CLASS({
       }
     },
     {
-      name: 'parser'
+      name: 'parser',
+      documentation: 'A Parser instance or a factory that returns a Parser or a Promise of a Parser.'
     },
     {
       class: 'Boolean',
@@ -336,6 +372,9 @@ foam.CLASS({
 
           let result = p.parse(this, grammar);
 
+          // If we have a successful parse, then ignore suggestions
+          if ( result && result.pos > self.maxPos ) self.suggestions = {};
+
           if ( self.normalize && result && p.suggest ) {
             let s = p.suggest();
             if ( ! s.text ) return result;
@@ -351,7 +390,7 @@ foam.CLASS({
     {
       name: 'prop',
       postSet: function(_, prop) {
-        if (prop?.onKey ) {
+        if ( prop?.onKey ) {
           this.data$.linkFrom(this.preview$);
         }
       }
@@ -408,7 +447,9 @@ foam.CLASS({
       // Search fields have a 'x' icon on the right which clears the field, but for
       // some reason if onPreviewChange runs too quickly then this doesn't work for
       // some unknown reason.
-      this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      if ( this.mode == foam.u2.DisplayMode.RW ) {
+        this.field.on('focus', () => this.setTimeout(this.onPreviewChange, 300));
+      }
       self.overlay_.parentEl = this.field.el_();
       self.overlay_.write();
       self.overlay_
@@ -533,6 +574,7 @@ foam.CLASS({
         let overlay = this?.overlay_;
         // Close the selections list when the user leaves the field (and descendents)
         if ( ! this.element_.parentNode.contains(document.activeElement) && ! ( overlay && overlay.el_().contains(document.activeElement) ) ) {
+          overlay?.close();
           this.reset();
           // Fire a manual change event since this will not have fired if the user
           // never changed the text field value and only used the completer.
@@ -546,7 +588,7 @@ foam.CLASS({
     {
       name: 'onPreviewChange',
       isFramed: true,
-      code: function() {
+      code: async function() {
         this.error = '';
 
         // Parse the preview text with our 'apply' callback so we can rebuild
@@ -555,14 +597,15 @@ foam.CLASS({
 
         let str = this.preview + String.fromCharCode(26) /* EOF */;
         let ps  = foam.parse.StringPStream.create({str: str, apply: this.apply});
-
-        ps = this.parser.parse(ps);
+        let parser = foam.Function.isInstance(this.parser) ? await this.parser() : this.parser;
+        ps = parser.parse(ps);
       }
     },
     {
       name: 'onDataChange',
-      isFramed: true,
-      code: function() {
+      isMerged: true,
+      delay: 350,
+      code: async function() {
         if ( ! this.data ) { this.error = ''; return; }
 
         this.preview = this.data;
@@ -575,7 +618,8 @@ foam.CLASS({
         let str    = this.data + String.fromCharCode(26) /* EOF */;
         let ps     = foam.parse.StringPStream.create({str: str, apply: apply});
 
-        ps = this.parser.parse(ps);
+        let parser = foam.Function.isInstance(this.parser) ? await this.parser() : this.parser;
+        ps = parser.parse(ps);
 
         if ( ps == null || maxPos < this.data.length ) {
           this.error = 'Error at: ' + (maxPos == this.data.length ? '<end of input>' : this.data.substring(maxPos));

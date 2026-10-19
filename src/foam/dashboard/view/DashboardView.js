@@ -8,7 +8,10 @@ foam.CLASS({
   package: 'foam.dashboard.view',
   name: 'DashboardView',
   extends: 'foam.dashboard.view.Dashboard',
-  mixins: ['foam.u2.layout.ContainerWidth'],
+  mixins: [
+    'foam.u2.Router',
+    'foam.u2.layout.ContainerWidth'
+  ],
 
   imports: [
     'menuDAO',
@@ -21,20 +24,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       height: 100%;
       width: 100%;
       display: flex;
       flex-direction: column;
     }
-    ^main {
+    <<main {
       height: fit-content;
       min-height: 600px;
       padding: 24px 32px;
       max-width: 160rem;
       margin: auto;
     }
-    ^widget-container {
+    <<widget-container {
       width: 100%;
       display: grid;
       flex-grow: 1;
@@ -120,6 +123,14 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      if ( this.main ) {
+        this.addCrumb();
+        this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+      }
+    },
+
     async function render() {
       this.SUPER();
       this.initContainer();
@@ -201,4 +212,3 @@ foam.CLASS({
     }
   ]
 });
-

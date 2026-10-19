@@ -11,7 +11,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ .foam-u2-ActionView {
+    << .foam-u2-ActionView {
       margin-left: 24px;
       height: 24px;
     }
@@ -28,7 +28,10 @@ foam.CLASS({
           add(this.data.signor$).
         end().
         add(' ', this.data.timestamp$.map(ts => ts ? '' + ts : ''), ' ')
-        .start('span').style({color: 'red'}).add(this.data.prerequisite$).end().
+        .start('span').
+          style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+          add(this.data.prerequisite$).
+        end().
         add(this.data.SIGN, this.data.UNSIGN);
       // TODO: I don't know why the timestamp$.map is required
     }

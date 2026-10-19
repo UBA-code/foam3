@@ -9,8 +9,8 @@ foam.CLASS({
   name: 'Link',
   extends: 'foam.u2.Element',
 
-  css: `^ {
-    color: -webkit-link;
+  css: `<< {
+    color: $link;
     cursor: pointer;
     text-decoration: underline;
   }`,

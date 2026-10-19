@@ -14,6 +14,15 @@ foam.CLASS({
     Asks questions one at a time in optimal information-gain order, tracks a
     back-navigation stack, narrows the candidate set, and presents the outcome.
     Fully agnostic to the QA class — works with any compiled foam.QA2() model.
+
+    Sizing: the footer holding Back and Next is pinned to the bottom of
+    whatever height this view is given, and the question area scrolls inside
+    what is left. In a flex container it claims the leftover space by default,
+    whether it sits there directly or inside a wrapper. Outside one it is as
+    tall as its content, so an embedder that wants it to fill a fixed-height
+    container has to say so — and has to say it on this element, not on a
+    wrapper around it, or the footer stops at the end of a short question
+    instead of the bottom of the container.
   `,
 
   exports: ['as wizard'],
@@ -36,23 +45,29 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      /* No height: the embedder owns the footprint. These two say how to behave
+         once given one — take the leftover space of a flex parent, and accept a
+         height smaller than a long question so the question scrolls rather than
+         the footer sliding off the bottom. Both are defaults an embedder can
+         override, and both are inert outside a flex container. */
+      flex: 1;
+      min-height: 0;
       background: $backgroundDefault;
     }
-    ^header {
+    <<header {
       padding: 0px 24px 16px;
       border-bottom: 1px solid $borderLight;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
-    ^candidate-count {
+    <<candidate-count {
       color: $textSecondary;
     }
-    ^content {
+    <<content {
       flex: 1;
       padding: 24px;
       overflow-y: auto;
@@ -60,7 +75,7 @@ foam.CLASS({
       flex-direction: column;
       gap: 4px;
     }
-    ^footer {
+    <<footer {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
@@ -69,7 +84,7 @@ foam.CLASS({
       border-top: 1px solid $borderLight;
       background: $backgroundDefault;
     }
-    ^pick-hint {
+    <<pick-hint {
       color: $textTertiary;
     }
   `,
@@ -161,8 +176,16 @@ foam.CLASS({
         var axiom = self.currentQuestionAxiom;
         if ( name && self.data ) {
           var slot = self.data$.dot(name);
-          self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function(v) {
-            return !!v;
+          // Ask the questionnaire whether the question is answered rather than
+          // testing the value for truthiness. A numeric answer of 0, a Boolean
+          // answered false and a choice whose value is '0' are real answers that
+          // `!!v` rejects, so Next stayed disabled and they could not be
+          // submitted at all. An empty multi-select has the opposite problem:
+          // `!![]` is true, so Next enabled with nothing selected and clicking it
+          // re-served the same question. Keep mapping off the value slot so the
+          // subscription still fires on every change, including clearProperty.
+          self.valueSub_ = self.currentAnswerFilled$.follow(slot.map(function() {
+            return self.data.isAnswered_(name);
           }));
           // Track the current question's validateObj result so Next can block on it.
           // data.slot(validateObj) is the same per-property error slot Section uses.

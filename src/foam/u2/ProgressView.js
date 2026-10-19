@@ -22,26 +22,28 @@ foam.CLASS({
 
   cssTokens: [
     {
+      class: 'foam.u2.ColorToken',
       name: 'progressColor',
       value: '$backgroundBrand'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'trackColor',
       value: '$backgroundTertiary'
     }
   ],
 
   css: `
-    ^ {
+    << {
       width: 100%;
       -webkit-appearance: none;
       height: 8px;
     }
-    ^::-webkit-progress-bar {
+    <<::-webkit-progress-bar {
       background-color: $trackColor;
       border-radius: 25px;
     }
-    ^::-webkit-progress-value {
+    <<::-webkit-progress-value {
       background-color: $progressColor;
       border-radius: 25px;
     }

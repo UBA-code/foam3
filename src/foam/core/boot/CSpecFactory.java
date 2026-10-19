@@ -25,20 +25,20 @@ public class CSpecFactory
   Thread      creatingThread_ = null;
   Object      ns_             = null;
   ThreadLocal tlService_      = new ThreadLocal() {
-      long since = 0L;
-      protected Object initialValue() {
-        since = System.currentTimeMillis();
-        return maybeBuildService();
-      }
+    long since = 0L;
+    protected Object initialValue() {
+      since = System.currentTimeMillis();
+      return maybeBuildService();
+    }
 
-      public Object get() {
-        if ( System.currentTimeMillis() - since > 1000 ) {
-          // invalidate - force initialValue to be called on next get()
-          super.remove();
-        }
-        return super.get();
+    public Object get() {
+      if ( System.currentTimeMillis() - since > 1000 ) {
+        // invalidate - force initialValue to be called on next get()
+        super.remove();
       }
-    };
+      return super.get();
+    }
+  };
 
   public CSpecFactory(ProxyX x, CSpec spec) {
     x_    = x;
@@ -148,6 +148,9 @@ public class CSpecFactory
           ns = null;
         }
       }
+      // lazy:false promises the data is loaded at boot. The service script has
+      // returned by now, so every index it added goes into that load.
+      if ( ! spec_.getLazy() && ns_ instanceof DAO ) ((DAO) ns_).cmd(DAO.LOAD_CMD);
       spec_.updateStatus(CSpecStatus.READY, "Initialized", (ns_ != null && ! ( ns_ instanceof ProxyDAO)) ? ns_.getClass().getSimpleName() : null);
     } catch (Throwable t) {
       spec_.updateStatus("Initializing", t);

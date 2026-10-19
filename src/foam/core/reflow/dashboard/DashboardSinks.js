@@ -28,148 +28,36 @@ foam.CLASS({
 
   methods: [
     function fillTimeGapKeys(existingKeys, groups, periods, prop) {
-      // Detect time granularity from the property expression
-      var granularity = null;
+      var dk    = foam.core.reflow.dashboard.DateKeys;
+      var entry = dk.entryFor(prop);
 
-      // Check if prop is a date transformation expression
-      if ( prop && prop.delegate && foam.lang.Date.isInstance(prop.delegate) ) {
-        if ( foam.mlang.expr.DateToWeekExpr.isInstance(prop) ) {
-          granularity = 'week';
-        } else if ( foam.mlang.expr.DateToQuarterExpr.isInstance(prop) ) {
-          granularity = 'quarter';
-        } else if ( foam.mlang.expr.DateToDayOfYearExpr.isInstance(prop) ) {
-          granularity = 'day';
-        } else if ( foam.mlang.expr.DateToYYYYMMExpr.isInstance(prop) ) {
-          granularity = 'month';
-        } else if ( foam.mlang.expr.DateToYYYYExpr.isInstance(prop) ) {
-          granularity = 'year';
-        } else if ( foam.mlang.expr.DateToYYYYMMDDExpr.isInstance(prop) ) {
-          granularity = 'date';
-        }
+      // Not a date grouping we know how to step through.
+      if ( ! entry || ! prop.delegate ) return existingKeys;
+
+      var range = entry.calculate(periods);
+      var end   = range.maxDate.getTime();
+      var d     = entry.periodStart(range.minDate);
+
+      // Render each period's key with the expression itself, so the
+      // synthesized keys are guaranteed to match the real ones.
+      var stub = {};
+      var name = prop.delegate.name;
+      var keys = [], seen = {};
+
+      for ( var guard = 0; guard < 5000 && d.getTime() <= end; guard++ ) {
+        stub[name] = d;
+        var k = prop.f(stub);
+        if ( k !== '' && ! seen[k] ) { seen[k] = true; keys.push(k); }
+
+        var nextD = entry.next(d);
+        if ( nextD.getTime() <= d.getTime() ) break;   // never spin
+        d = nextD;
       }
 
-      if ( ! granularity ) return existingKeys; // Not a supported time expression
+      // Keep real data that falls outside the computed window.
+      existingKeys.forEach(function(k) { if ( ! seen[k] ) keys.push(k); });
 
-      // Calculate range based on periods (e.g., last 12 months from today)
-      var now = new Date();
-      var minDate = new Date(now);
-      var maxDate = new Date(now);
-
-      // Calculate start date based on granularity and periods
-      // Subtract (periods - 1) to get the correct range including current period
-      // Example: periods=12 for months means current month + 11 previous = 12 total
-      if ( granularity === 'week' ) {
-        minDate.setDate(minDate.getDate() - ((periods - 1) * 7));
-      } else if ( granularity === 'quarter' ) {
-        minDate.setMonth(minDate.getMonth() - ((periods - 1) * 3));
-      } else if ( granularity === 'month' ) {
-        minDate.setMonth(minDate.getMonth() - (periods - 1));
-      } else if ( granularity === 'year' ) {
-        minDate.setFullYear(minDate.getFullYear() - (periods - 1));
-      } else if ( granularity === 'date' || granularity === 'day' ) {
-        minDate.setDate(minDate.getDate() - (periods - 1));
-      }
-
-      // Generate keys using the property expression
-      var minKey = prop.f({ [prop.delegate.name]: minDate });
-      var maxKey = prop.f({ [prop.delegate.name]: maxDate });
-
-      // Generate all keys between min and max based on granularity
-      var allKeys = [];
-
-      if ( granularity === 'week' ) {
-        // Format: YYYY-W##
-        var match = minKey.match(/^(\d{4})-W(\d{2})$/);
-        var minYear = parseInt(match[1]);
-        var minWeek = parseInt(match[2]);
-        match = maxKey.match(/^(\d{4})-W(\d{2})$/);
-        var maxYear = parseInt(match[1]);
-        var maxWeek = parseInt(match[2]);
-
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          var startWeek = (y === minYear) ? minWeek : 1;
-          var endWeek = (y === maxYear) ? maxWeek : 52;
-          for ( var w = startWeek; w <= endWeek; w++ ) {
-            allKeys.push(y + '-W' + String(w).padStart(2, '0'));
-          }
-        }
-      } else if ( granularity === 'quarter' ) {
-        // Format: YYYY-Q#
-        var match = minKey.match(/^(\d{4})-Q(\d)$/);
-        var minYear = parseInt(match[1]);
-        var minQ = parseInt(match[2]);
-        match = maxKey.match(/^(\d{4})-Q(\d)$/);
-        var maxYear = parseInt(match[1]);
-        var maxQ = parseInt(match[2]);
-
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          var startQ = (y === minYear) ? minQ : 1;
-          var endQ = (y === maxYear) ? maxQ : 4;
-          for ( var q = startQ; q <= endQ; q++ ) {
-            allKeys.push(y + '-Q' + q);
-          }
-        }
-      } else if ( granularity === 'month' ) {
-        // Format: YYYY/MM
-        var parts = minKey.split('/');
-        var minYear = parseInt(parts[0]);
-        var minMonth = parseInt(parts[1]);
-        parts = maxKey.split('/');
-        var maxYear = parseInt(parts[0]);
-        var maxMonth = parseInt(parts[1]);
-
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          var startM = (y === minYear) ? minMonth : 1;
-          var endM = (y === maxYear) ? maxMonth : 12;
-          for ( var m = startM; m <= endM; m++ ) {
-            allKeys.push(y + '/' + String(m).padStart(2, '0'));
-          }
-        }
-      } else if ( granularity === 'year' ) {
-        // Format: YYYY
-        var minYear = parseInt(minKey);
-        var maxYear = parseInt(maxKey);
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          allKeys.push(String(y));
-        }
-      } else if ( granularity === 'date' || granularity === 'day' ) {
-        // Format: YYYY/MM/DD or YYYY-###
-        if ( granularity === 'day' ) {
-          // Day of year: YYYY-###
-          var match = minKey.match(/^(\d{4})-(\d{3})$/);
-          var minYear = parseInt(match[1]);
-          var minDay = parseInt(match[2]);
-          match = maxKey.match(/^(\d{4})-(\d{3})$/);
-          var maxYear = parseInt(match[1]);
-          var maxDay = parseInt(match[2]);
-
-          for ( var y = minYear; y <= maxYear; y++ ) {
-            var daysInYear = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365;
-            var startD = (y === minYear) ? minDay : 1;
-            var endD = (y === maxYear) ? maxDay : daysInYear;
-            for ( var d = startD; d <= endD; d++ ) {
-              allKeys.push(y + '-' + String(d).padStart(3, '0'));
-            }
-          }
-        } else {
-          // Full date: YYYY/MM/DD
-          var parts = minKey.split('/');
-          var minDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-          parts = maxKey.split('/');
-          var maxDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-
-          var currentDate = new Date(minDate);
-          while ( currentDate <= maxDate ) {
-            var y = currentDate.getFullYear();
-            var m = String(currentDate.getMonth() + 1).padStart(2, '0');
-            var d = String(currentDate.getDate()).padStart(2, '0');
-            allKeys.push(y + '/' + m + '/' + d);
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-        }
-      }
-
-      return allKeys;
+      return keys.sort();
     }
   ]
 });
@@ -454,11 +342,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^graph-container {
+    <<graph-container {
       width: 100%;
     }
 
-    ^empty-value-message {
+    <<empty-value-message {
       width: 100%;
       display: flex;
       justify-content: center;
@@ -689,7 +577,7 @@ foam.CLASS({
             },
             datalabels: {
               display: true,
-              color: 'white',
+              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
               font: {
                 weight: 'bold'
               }
@@ -859,6 +747,8 @@ foam.CLASS({
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
 
+  imports: [ 'window' ],
+
   requires: [
     'org.chartjs.StackedBar2',
     'foam.u2.layout.ContainerWidth'
@@ -904,6 +794,7 @@ foam.CLASS({
                           showGridLines, responsive, maintainAspectRatio,
                           showLegend, legendPosition, showTooltips, showTooltipSum, animate, animationDuration,
                           periodCount, width) {
+        var self = this;
         // Don't create chart until we have a valid width
         if ( ! width || width <= 0 ) {
           return null;
@@ -1034,7 +925,7 @@ foam.CLASS({
             },
             datalabels: {
               display: true,
-              color: 'white',
+              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
               font: {
                 weight: 'bold'
               }
@@ -1100,8 +991,8 @@ foam.CLASS({
                   var nativeEvt = evt && (evt.native || evt);
                   var clientX = nativeEvt && nativeEvt.clientX;
                   var clientY = nativeEvt && nativeEvt.clientY;
-                  var pageX   = nativeEvt && (nativeEvt.pageX !== undefined ? nativeEvt.pageX : (clientX != null ? clientX + window.scrollX : undefined));
-                  var pageY   = nativeEvt && (nativeEvt.pageY !== undefined ? nativeEvt.pageY : (clientY != null ? clientY + window.scrollY : undefined));
+                  var pageX   = nativeEvt && (nativeEvt.pageX !== undefined ? nativeEvt.pageX : (clientX != null ? clientX + self.window.scrollX : undefined));
+                  var pageY   = nativeEvt && (nativeEvt.pageY !== undefined ? nativeEvt.pageY : (clientY != null ? clientY + self.window.scrollY : undefined));
                   var canvas  = chart && chart.canvas;
                   var rect    = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
                   var scaleX  = rect && rect.width  ? (canvas.width  / rect.width)  : 1;
@@ -1237,14 +1128,33 @@ foam.CLASS({
     { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer (for multiple lines)' },
     { class: 'Boolean', name: 'animate', value: true },
     { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' }
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    { class: 'Boolean', name: 'toggleCustomXScale' },
+    { class: 'Boolean', name: 'toggleCustomYScale' },
+    { name: 'xAxisMaxScale' }, // untyped: null means "no bound" (says Claude)
+    { name: 'xAxisMinScale' },
+    { name: 'yAxisMaxScale' },
+    { name: 'yAxisMinScale' },
+    { class: 'Boolean', name: 'autoSkip' },
+    { class: 'DateTime', name: 'xDateAxisMinScale' },
+    { class: 'DateTime', name: 'xDateAxisMaxScale' },
+    { class: 'Boolean', name: 'isTimeScale' },
+    { class: 'DateTime', name: 'dataXMin_', transient: true, visibility: 'HIDDEN' },
+    { class: 'DateTime', name: 'dataXMax_', transient: true, visibility: 'HIDDEN' },
+    { name: 'xScaleType_',  transient: true, visibility: 'HIDDEN' },
+    { name: 'dataXNumMin_', transient: true, visibility: 'HIDDEN' },
+    { name: 'dataXNumMax_', transient: true, visibility: 'HIDDEN' },
+    { name: 'dataYNumMin_', transient: true, visibility: 'HIDDEN' },
+    { name: 'dataYNumMax_', transient: true, visibility: 'HIDDEN' },
   ],
 
   methods: [
     function createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                responsive, maintainAspectRatio, showLegend, legendPosition,
                                showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                               xPropForLabels, yPropForLabels) {
+                               xPropForLabels, yPropForLabels, toggleCustomXScale, toggleCustomYScale,
+                               xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                               xDateAxisMinScale,xDateAxisMaxScale, labels) {
       var chartJSOptions = {
         responsive: responsive,
         maintainAspectRatio: maintainAspectRatio,
@@ -1275,10 +1185,13 @@ foam.CLASS({
           x: {
             title: {
               display: !!xAxisLabel || !!(xPropForLabels && xPropForLabels.label),
-              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : '')
+              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : ''),
             },
             grid: {
               display: showGridLines
+            },
+            ticks: {
+              autoSkip: autoSkip
             }
           },
           y: {
@@ -1288,7 +1201,9 @@ foam.CLASS({
             },
             grid: {
               display: showGridLines
-            }
+            },
+            min: toggleCustomYScale && yAxisMinScale != null ? yAxisMinScale : undefined,
+            max: toggleCustomYScale && yAxisMaxScale != null ? yAxisMaxScale : undefined
           }
         }
       };
@@ -1304,14 +1219,42 @@ foam.CLASS({
         if ( timeUnit.displayFormat ) {
           chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
         }
+
+        if ( toggleCustomXScale ) {
+          if ( xDateAxisMinScale ) chartJSOptions.scales.x.min = xDateAxisMinScale;
+          if ( xDateAxisMaxScale ) chartJSOptions.scales.x.max = xDateAxisMaxScale;
+        }
+
+      } else {
+        chartJSOptions.scales.x.type = this.xScaleType_ || 'category';
+
+        if ( toggleCustomXScale ) {
+          if ( xAxisMinScale != null ) chartJSOptions.scales.x.min = xAxisMinScale;
+          if ( xAxisMaxScale != null ) chartJSOptions.scales.x.max = xAxisMaxScale;
+        }
       }
 
       return this.Line2.create({
-        data: { datasets: datasets },
+        data: { labels: labels || [], datasets: datasets },
         options: chartJSOptions,
         width$: this.width$,
         height$: this.height$
       });
+    },
+
+    function parseXValue(prop, xValue, isTimeScale) {
+      if ( ! isTimeScale ) {
+        return ( prop && prop.chartJsFormatter ) ? prop.chartJsFormatter(xValue) : xValue;
+      }
+      if ( xValue instanceof Date ) return xValue;
+
+      // Grouped keys ('2026-W06', '2026/07', '2026-059') aren't parseable
+      // by Date, so read them with the expression's own parser first.
+      var parsed = foam.core.reflow.dashboard.DateKeys.parse(prop, xValue);
+      if ( parsed ) return parsed;
+
+      var d = ( typeof xValue === 'number' ) ? new Date(xValue) : new Date(String(xValue));
+      return isNaN(d.getTime()) ? null : d;
     },
 
     function addToE(e) {
@@ -1385,7 +1328,9 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
 
       if ( !arg1 || !arg2 ) return null;
 
@@ -1395,20 +1340,14 @@ foam.CLASS({
       }
 
       var data = [];
+      var labels = [];
+      var minX = null, maxX = null;
+      var minY = null, maxY = null;
+      var minXNum = null, maxXNum = null, allNumeric = true;
       var sortedKeys = this.sortedKeys ? this.sortedKeys() : Object.keys(groups);
 
-      // Check if arg1 is a date property for period range display
-      var isDateAxis = false;
-      if ( arg1 ) {
-        if ( foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1) ) {
-          isDateAxis = true;
-        } else if ( arg1.delegate && (foam.lang.Date.isInstance(arg1.delegate) || foam.lang.DateTime.isInstance(arg1.delegate)) ) {
-          isDateAxis = true;
-        }
-      }
-
       // Apply period range if enabled (periodCount > 0) and x-axis is a date
-      if ( periodCount > 0 && isDateAxis ) {
+      if ( periodCount > 0 && isTimeScale ) {
         sortedKeys = this.fillTimeGapKeys(sortedKeys, groups, periodCount, arg1);
       }
 
@@ -1418,20 +1357,50 @@ foam.CLASS({
         var aggregatedSink = groups[xValue];
         var yValue = aggregatedSink ? aggregatedSink.value : 0;
 
-        // Format x value for Chart.js
-        var xVal = xValue;
-        if ( arg1 && arg1.chartJsFormatter ) {
-          xVal = arg1.chartJsFormatter(xValue);
-        } else if ( foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1) ) {
-          if ( typeof xValue === 'number' ) {
-            xVal = new Date(xValue);
-          } else if ( typeof xValue === 'string' ) {
-            xVal = new Date(xValue);
+        // Taken from Claude -----------------------------------------
+        var xVal = this.parseXValue(arg1, xValue, isTimeScale);
+        if ( xVal === null ) continue;
+
+        if ( isTimeScale ) {
+          if ( ! minX || xVal.getTime() < minX.getTime() ) minX = xVal;
+          if ( ! maxX || xVal.getTime() > maxX.getTime() ) maxX = xVal;
+        } else {
+          var n = Number(xVal);
+          if ( xVal === '' || xVal == null || isNaN(n) ) {
+            allNumeric = false;
+          } else {
+            if ( minXNum === null || n < minXNum ) minXNum = n;
+            if ( maxXNum === null || n > maxXNum ) maxXNum = n;
           }
         }
+        // ------------------------------------------------------------
 
+        labels.push(xVal);
         data.push({ x: xVal, y: yValue });
+        var yn = Number(yValue);
+        if ( ! isNaN(yn) ) {
+          if ( minY === null || yn < minY ) minY = yn;
+          if ( maxY === null || yn > maxY ) maxY = yn;
+        }
       }
+
+      // Pre-set the date range
+      if ( isTimeScale ) {
+        this.xScaleType_ = 'time';
+        this.dataXMin_ = minX;
+        this.dataXMax_ = maxX;
+      } else if ( allNumeric && data.length ) {
+        this.xScaleType_ = 'linear';
+        this.dataXNumMin_ = minXNum;
+        this.dataXNumMax_ = maxXNum;
+      } else {
+        this.xScaleType_ = 'category';
+        this.dataXNumMin_ = 0;
+        this.dataXNumMax_ = Math.max(0, labels.length - 1);
+      }
+
+      this.dataYNumMin_ = minY;
+      this.dataYNumMax_ = maxY;
 
       // Create single dataset
       var datasetConfig = {
@@ -1458,13 +1427,14 @@ foam.CLASS({
       }
 
       var datasets = [datasetConfig];
-      var isTimeScale = arg1 && (foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1));
 
       // Use the mixin method instead of duplicating chart options
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   arg1, arg2);
+                                   arg1, arg2, toggleCustomXScale, toggleCustomYScale,
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
+                                   isTimeScale ? null : labels);
     }
 
   }
@@ -1550,7 +1520,9 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
@@ -1568,19 +1540,52 @@ foam.CLASS({
       var sortedColKeys = cols && cols.sortedKeys ? cols.sortedKeys() : Object.keys(colGroups);
       var sortedRowKeys = rows && rows.sortedKeys ? rows.sortedKeys() : Object.keys(rowGroups);
 
-      // Check if xFunc is a date property for period range display
-      var isDateAxis = false;
-      if ( xFunc ) {
-        if ( foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc) ) {
-          isDateAxis = true;
-        } else if ( xFunc.delegate && (foam.lang.Date.isInstance(xFunc.delegate) || foam.lang.DateTime.isInstance(xFunc.delegate)) ) {
-          isDateAxis = true;
-        }
+      // Apply period range if enabled (periodCount > 0) and x-axis is a date
+      if ( periodCount > 0 && isTimeScale ) {
+        sortedColKeys = this.fillTimeGapKeys(sortedColKeys, colGroups, periodCount, xFunc);
       }
 
-      // Apply period range if enabled (periodCount > 0) and x-axis is a date
-      if ( periodCount > 0 && isDateAxis ) {
-        sortedColKeys = this.fillTimeGapKeys(sortedColKeys, colGroups, periodCount, xFunc);
+      // Parse the column keys once — they're shared by every line
+      var xVals = [], colKeys = [], labels = [];
+      var minX = null, maxX = null;
+      var minY = null, maxY = null;
+      var minXNum = null, maxXNum = null, allNumeric = true;
+
+      for ( var i = 0; i < sortedColKeys.length; i++ ) {
+        var xValue = sortedColKeys[i];
+        var xVal = this.parseXValue(xFunc, xValue, isTimeScale);
+        if ( xVal === null ) continue;
+
+        if ( isTimeScale ) {
+          if ( ! minX || xVal.getTime() < minX.getTime() ) minX = xVal;
+          if ( ! maxX || xVal.getTime() > maxX.getTime() ) maxX = xVal;
+        } else {
+          var n = Number(xVal);
+          if ( xVal === '' || xVal == null || isNaN(n) ) {
+            allNumeric = false;
+          } else {
+            if ( minXNum === null || n < minXNum ) minXNum = n;
+            if ( maxXNum === null || n > maxXNum ) maxXNum = n;
+          }
+        }
+
+        colKeys.push(xValue);   // original group key, for lookups
+        xVals.push(xVal);       // parsed value, for the chart
+        labels.push(xVal);
+      }
+
+      if ( isTimeScale ) {
+        this.xScaleType_ = 'time';
+        this.dataXMin_ = minX;
+        this.dataXMax_ = maxX;
+      } else if ( allNumeric && xVals.length ) {
+        this.xScaleType_ = 'linear';
+        this.dataXNumMin_ = minXNum;
+        this.dataXNumMax_ = maxXNum;
+      } else {
+        this.xScaleType_ = 'category';
+        this.dataXNumMin_ = 0;
+        this.dataXNumMax_ = Math.max(0, labels.length - 1);
       }
 
       // Create a dataset for each line (row group)
@@ -1589,27 +1594,18 @@ foam.CLASS({
         var rowGroup = rowGroups[lineKey];
         var data = [];
 
-        for ( var i = 0; i < sortedColKeys.length; i++ ) {
-          var xValue = sortedColKeys[i];
+        for ( var i = 0; i < xVals.length; i++ ) {
           var yValue = 0;
-
-          if ( rowGroup && rowGroup.groups && rowGroup.groups[xValue] ) {
-            yValue = rowGroup.groups[xValue].value || 0;
+          if ( rowGroup && rowGroup.groups && rowGroup.groups[colKeys[i]] ) {
+            yValue = rowGroup.groups[colKeys[i]].value || 0;
           }
+          data.push({ x: xVals[i], y: yValue });
 
-          // Format x value for Chart.js
-          var xVal = xValue;
-          if ( xFunc && xFunc.chartJsFormatter ) {
-            xVal = xFunc.chartJsFormatter(xValue);
-          } else if ( foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc) ) {
-            if ( typeof xValue === 'number' ) {
-              xVal = new Date(xValue);
-            } else if ( typeof xValue === 'string' ) {
-              xVal = new Date(xValue);
-            }
+          var yn = Number(yValue);
+          if ( ! isNaN(yn) ) {
+            if ( minY === null || yn < minY ) minY = yn;
+            if ( maxY === null || yn > maxY ) maxY = yn;
           }
-
-          data.push({ x: xVal, y: yValue });
         }
 
         var datasetConfig = {
@@ -1639,13 +1635,16 @@ foam.CLASS({
         colorIndex++;
       }
 
-      var isTimeScale = xFunc && (foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc));
+      this.dataYNumMin_ = minY;
+      this.dataYNumMax_ = maxY;
 
       // Use the mixin method instead of duplicating chart options
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   xFunc, yFunc);
+                                   xFunc, yFunc, toggleCustomXScale, toggleCustomYScale,
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                                   xDateAxisMinScale, xDateAxisMaxScale, isTimeScale ? null : labels);
       }
     }
 

@@ -15,6 +15,11 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.FlowDAOControllerView as DAOControllerView'
+  ],
+
+  imports: [
+    // Embedded flow blocks do not always provide a page-level memento.
+    'memento?'
   ]
 });
 
@@ -48,21 +53,21 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-filter-FilterView-container-search {
+    << .foam-u2-filter-FilterView-container-search {
       min-width: 100%;
       gap:8px;
     }
-    ^ .foam-u2-filter-FilterView-general-field {
+    << .foam-u2-filter-FilterView-general-field {
       min-width: 80%;
     }
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       width: 100%;
       padding: 0;
       margin: 0
     }
-    ^top-bar {
+    <<top-bar {
       width: 100%;
       display: flex;
       flex-direction: row;
@@ -70,11 +75,11 @@ foam.CLASS({
       align-items: center;
       padding: 12px 0;
     }
-    ^filters{
+    <<filters{
       padding: 0 24px;
       padding-bottom: 12px;
     }
-    ^button-span {
+    <<button-span {
       width: 100%;
       display: flex;
       flex-direction: row;
@@ -153,6 +158,10 @@ foam.CLASS({
             })
           .end()
         .end();
+    },
+
+    function click(obj, id) {
+      this.onEdit(null, null, obj && obj.id ? obj.id : id);
     }
   ],
 
@@ -160,15 +169,16 @@ foam.CLASS({
     {
       name: 'onCreate',
       on: [
-        'data.create'
+        // Create is published as action.create by foam.lang.Action.call().
+        'data.action.create'
       ],
       code: function() {
         if ( this.block.out.childNodes.length > 1 ) {
           this.block.out.childNodes[1].remove();
         }
-        const view = this.createControllerViewCls.create({
-          dao: this.data.data
-        }, this.__subContext__);
+        // DAOCreateControllerView imports dao from context, so provide it explicitly.
+        const ctx = this.__subContext__.createSubContext({ dao: this.data.data });
+        const view = this.createControllerViewCls.create({}, ctx);
         this.block.out.add(view);
       }
     }
@@ -180,13 +190,17 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'FlowDAOCreateControllerView',
   extends: 'foam.comics.DAOCreateControllerView',
-  imports: ['block'],
+  imports: [
+    'block',
+    // Reflow blocks can render without a notification service in scope.
+    'notify?'
+  ],
 
   css: `
-    ^ {
+    << {
       width: 100%;
     }
-    ^action-container {
+    <<action-container {
       display: flex;
       flex-direction: row;
       justify-content: flex-end;
@@ -205,14 +219,6 @@ foam.CLASS({
       code: function() {
         this.remove();
       }
-    },
-    {
-      name: 'save',
-      buttonStyle: 'PRIMARY',
-      code: function() {
-        this.data.save();
-        this.remove();
-      }
     }
   ],
 
@@ -223,7 +229,7 @@ foam.CLASS({
         'data.finished'
       ],
       code: function() {
-        this.notify(this.dao.of.name + this.CREATED, '', this.LogLevel.INFO, true);
+        this.notify?.(this.dao.of.name + this.CREATED, '', this.LogLevel.INFO, true);
         this.remove();
       }
     },
@@ -232,7 +238,7 @@ foam.CLASS({
       on: [ 'data.throwError' ],
       code: function() {
         var self = this;
-        self.notify(self.data.exception.message, '', self.LogLevel.ERROR, true);
+        self.notify?.(self.data.exception.message, '', self.LogLevel.ERROR, true);
       }
     }
   ]
@@ -243,7 +249,11 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'FlowEmbeddedTableView',
   extends: 'foam.u2.view.EmbeddedTableView',
-  imports: ['block', 'detailView'],
+  imports: [
+    'block',
+    'detailView?',
+    'daoController?'
+  ],
 
   properties: [
     {
@@ -282,7 +292,15 @@ foam.CLASS({
         this.block.out.childNodes[1].remove();
       }
       var stack = foam.core.u2.navigation.Stack.create({pos:0}, this.__subContext__);
-      var ctx = this.__subContext__.createSubContext({ stack: stack });
+      // Embedded flow detail views may not sit under a full DAO controller.
+      var daoController = this.daoController || {
+        route: '',
+        routeToMe: function() { this.route = ''; }
+      };
+      var ctx = this.__subContext__.createSubContext({
+        stack: stack,
+        daoController: daoController
+      });
       var detailView = foam.comics.v3.DetailView.create({
         data: this.data,
         config$: this.config$,

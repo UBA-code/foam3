@@ -169,16 +169,16 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       position: relative;
     }
 
-    ^setAbove {
+    <<setAbove {
       z-index: 1;
     }
 
-    ^container {
+    <<container {
       position: relative;
       background: $backgroundDefault;
       border: 1px solid $borderDefault;
@@ -188,16 +188,16 @@ foam.CLASS({
       width: 100%;
       border-radius: $inputBorderRadius;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      z-index: 1000;
+      z-index: $z-popup;
       position: relative;
     }
 
-    ^heading {
+    <<heading {
       color: $textSecondary;
       padding: 8px 4px;
     }
 
-    ^selection-view {
+    <<selection-view {
       display: inline-flex;
       align-items: center;
       justify-content: space-between;
@@ -215,40 +215,40 @@ foam.CLASS({
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    ^dropdown {
+    <<dropdown {
       padding: 0 0.8rem;
     }
-    ^dropdown svg {
+    <<dropdown svg {
       height: 1em;
       fill: $dropdownIcon;
       aspect-ratio: 1;
     }
 
-    ^selection-view:hover,
-    ^selection-view:hover ^clear-btn {
+    <<selection-view:hover,
+    <<selection-view:hover <<clear-btn {
       border-color: $borderDefault;
       background: $backgroundHover;
     }
 
-    ^:focus {
+    <<:focus {
       outline: none;
     }
 
-    ^:focus ^selection-view,
-    ^:focus ^selection-view ^clear-btn {
+    <<:focus <<selection-view,
+    <<:focus <<selection-view <<clear-btn {
       border-color: $borderBrand;
     }
 
-    ^custom-selection-view {
+    <<custom-selection-view {
       flex-grow: 1;
       overflow: hidden;
     }
 
-    ^search .property-filter_ {
+    <<search .property-filter_ {
       width: 100%;
     }
 
-    ^search input {
+    <<search input {
       border: none;
       width: 100%;
       border: none;
@@ -257,16 +257,16 @@ foam.CLASS({
       height: $inputHeight;
     }
 
-    ^search input:focus-visible {
+    <<search input:focus-visible {
       border: none;
       outline: none;
     }
 
-    ^search img {
+    <<search img {
       padding: 0 10px;
     }
 
-    ^search {
+    <<search {
       background: $backgroundDefault;
       border-bottom: 1px solid $borderDefault;
       display: flex;
@@ -275,15 +275,15 @@ foam.CLASS({
       z-index: 1;
     }
 
-    ^container .disabled {
+    <<container .disabled {
       filter: grayscale(100%) opacity(70%);
     }
 
-    ^container .disabled:hover {
+    <<container .disabled:hover {
       cursor: default;
     }
 
-    ^clear-btn {
+    <<clear-btn {
       display: flex;
       align-items: center;
       border-left: 1px;
@@ -296,26 +296,26 @@ foam.CLASS({
       padding-left: 16px;
     }
 
-    ^clear-btn:hover {
+    <<clear-btn:hover {
       color: $textDestructive;
       cursor: pointer;
     }
 
-    ^moreChoices {
+    <<moreChoices {
       padding: 8px 16px;
     }
 
-    ^section:not(:last-child) {
-      border-bottom: 1px solid #f4f4f9;
+    <<section:not(:last-child) {
+      border-bottom: 1px solid $borderXLight;
     }
 
-    ^container .highlighted {
+    <<container .highlighted {
       border-color: $borderDefault;
       background-color: $backgroundHover;
     }
 
-    ^container .highlighted.disabled {
-      background-color: initial;
+    <<container .highlighted.disabled {
+      background-color: unset;
     }
   `,
 
@@ -541,6 +541,22 @@ foam.CLASS({
         throw new Error(`You must provide an array of sections. See documentation on the 'sections' property in RichTextView.js.`);
       }
 
+      this.sections.forEach(function(section, i) {
+        if ( ! section.dao ) {
+          console.error('RichChoiceView: section ' + i +
+            ( section.heading ? ' ("' + section.heading + '")' : '' ) +
+            ' has no dao. Every section must provide one; opening the ' +
+            'dropdown, searching or resolving a selection will throw.');
+        }
+        section.searchBy.forEach(function(p) {
+          if ( typeof p === 'string' ) {
+            console.warn('RichChoiceView: searchBy expects PropertyInfos ' +
+              '(e.g. Model.NAME), but got string "' + p + '"; the search ' +
+              'will not filter by this property.');
+          }
+        });
+      });
+
       // If the property that this view is for already has a value when being
       // rendered, the 'data' property on this model will be set to an id for
       // the object being referenced by the Reference property being rendered.
@@ -614,6 +630,12 @@ foam.CLASS({
                           .addClass(self.myClass('selectable-item'))
                           .attr('disabled', section.disabled)
                           .attr('role', 'option')
+                          // Option rows had no id-bearing attribute, so recorders/tests
+                          // could only address them by list position, which breaks on
+                          // any reorder. Carry the choice id as data-value, the same
+                          // attribute the root element uses for its chosen value; name
+                          // stays on the root, where it is the field name.
+                          .attrs({ 'data-value': foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id })
                           .enableClass('disabled', section.disabled)
                           .enableClass('highlighted', self.highlightedIndex_$.map(v => v === itemIndex))
                           .callIf(! section.disabled, function() {
@@ -718,8 +740,16 @@ foam.CLASS({
     },
 
     function onSelect(obj) {
+      var id = obj[this.idProperty];
+      if ( id === undefined ) {
+        console.error('RichChoiceView: idProperty "' + this.idProperty +
+          '" did not resolve on the selected object. Pass a bare property name (e.g. \'name\'), not a PropertyInfo (e.g. Model.NAME, which stringifies to a qualified "' +
+          ( typeof this.idProperty === 'string' && this.idProperty.indexOf('.') >= 0 ? this.idProperty : 'package.Model.prop' ) + '" path).');
+        this.isOpen_ = false;
+        return;
+      }
       this.fullObject_ = obj;
-      this.data = obj[this.idProperty];
+      this.data = id;
       this.isOpen_ = false;
     },
 
@@ -824,10 +854,19 @@ foam.CLASS({
           this.clearSelection();
           return;
         }
+        var axiom = this.of && this.of.getAxiomByName(this.idProperty);
+        if ( this.of && ! axiom ) {
+          console.error('RichChoiceView: idProperty "' + this.idProperty +
+            '" is not an axiom of ' + this.of.id + ', so the preselected ' +
+            'value cannot be resolved and the selection will stay on the ' +
+            'placeholder. Pass a bare property name (e.g. \'name\'), not a ' +
+            'PropertyInfo (e.g. Model.NAME, which stringifies to a qualified path).');
+          return;
+        }
         this.sections.forEach(section => {
           if ( this.of ) {
             section.dao.where(
-              this.EQ(this.of.getAxiomByName(this.idProperty), this.data)
+              this.EQ(axiom, this.data)
             ).select().then(result => {
               if ( result.array.length > 0 ) {
                 if ( section.disabled ) return this.clearSelection();
@@ -895,17 +934,17 @@ foam.CLASS({
       ],
 
       css:`
-        ^ {
+        << {
           border-radius: $inputBorderRadius;
           overflow: hidden;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
-        ^paddingWrapper {
+        <<paddingWrapper {
           padding-left: $inputHorizontalPadding;
           padding-right: $inputHorizontalPadding;
         }
-        ^customSelectView:not(^ro) > div {
+        <<customSelectView:not(<<ro) > div {
           padding: 4px 8px;
         }
       `,
@@ -981,7 +1020,7 @@ foam.CLASS({
       ],
 
       css: `
-        ^ {
+        << {
           border: none;
           border-top: 1px solid $borderDefault;
           justify-content: flex-start;

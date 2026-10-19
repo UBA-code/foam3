@@ -273,15 +273,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^sorting {
+    <<sorting {
       font-weight: bold;
     }
 
-    ^sort-direction {
+    <<sort-direction {
       display: none;
       margin-right: 8px;
     }
-    ^sorting ^sort-direction {
+    <<sorting <<sort-direction {
       display: initial;
     }
   `,
@@ -300,9 +300,12 @@ foam.CLASS({
         return columns.map(function(p) {
           // Lookup String values as Axiom names, otherwise,
           // treat the object as the column object itself.
-          return typeof p === 'string' ?
-              cls.getAxiomByName(p) :
-              p ;
+          var axiom = typeof p === 'string' ? cls.getAxiomByName(p) : p;
+          if ( ! axiom ) {
+            console.warn('TableView: column "' + p + '" is not an axiom of ' +
+              cls.id + '; the column will not render correctly.');
+          }
+          return axiom;
         });
       }
     },

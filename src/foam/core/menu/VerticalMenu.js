@@ -27,11 +27,23 @@ foam.CLASS({
   requires: [
     'foam.core.menu.Menu',
     'foam.core.menu.VerticalMenu',
-    'foam.dao.ArraySink'
+    'foam.dao.ArraySink',
+    'foam.u2.ClearableSearchField'
+  ],
+
+  messages: [
+    {
+      name: 'MENU_SEARCH_LABEL',
+      messageMap: {
+        en: 'Menu Search',
+        fr: 'Recherche dans le menu'
+      }
+    }
   ],
 
   cssTokens: [
     {
+      class: 'foam.u2.ColorToken',
       name: 'menuBackground',
       value: '$backgroundDefault'
     },
@@ -46,11 +58,11 @@ foam.CLASS({
   ],
 
   css: `
-  ^ input[type="search"] {
+  << input[type="search"] {
     width: 100%;
   }
 
-  ^ {
+  << {
     background: $menuBackground;
     border-right: $borderSize;
     border-right-color: $borderLight;
@@ -65,26 +77,26 @@ foam.CLASS({
     width: 100%;
   }
 
-  ^ .side-nav-view,
-  ^ .side-nav-view .foam-u2-view-TreeViewRow  {
+  << .side-nav-view,
+  << .side-nav-view .foam-u2-view-TreeViewRow  {
     width: 100%;
   }
 
-  ^search {
+  <<search {
     box-sizing: border-box;
     padding: 0 8px 8px 8px;
     text-align: center;
     width: 100%;
   }
 
-  ^menuList {
+  <<menuList {
     flex: 1;
     height: 100%;
   }
 
   @media only screen and (min-width: 768px) {
-    ^ .side-nav-view,
-    ^ .side-nav-view .foam-u2-view-TreeViewRow  {
+    << .side-nav-view,
+    << .side-nav-view .foam-u2-view-TreeViewRow  {
       width: 240px;
     }
   }
@@ -108,16 +120,23 @@ foam.CLASS({
       class: 'String',
       name: 'menuSearch',
       view: {
-        class: 'foam.u2.SearchField',
+        class: 'foam.u2.ClearableSearchField',
         onKey: true,
         ariaLabel: 'Menu Search',
-        autocomplete: false
+        autocomplete: 'off'
       },
       value: ''
     },
     {
       name: 'nodeName',
       value: 'nav'
+    },
+    {
+      class: 'Boolean',
+      name: 'searchShown_',
+      value: true,
+      documentation: `Controls menu search visibility. Subclasses may bind it,
+        e.g. this.searchShown_$.follow(this.isMenuOpen$).`
     }
   ],
 
@@ -127,13 +146,7 @@ foam.CLASS({
       this
       .addClass(this.myClass())
         .callIf(this.theme.showNavSearch, function(){
-          this
-          .startContext({ data: this })
-            .start()
-            .add(this.MENU_SEARCH)
-              .addClass(this.myClass('search'))
-            .end()
-            .endContext();
+          self.renderSearch(this);
         })
         .start({
           class: 'foam.u2.view.TreeView',
@@ -153,6 +166,21 @@ foam.CLASS({
           defaultRoot: self.theme.navigationRootMenu
         })
           .addClass(this.myClass('menuList'))
+        .end();
+    },
+
+    function renderSearch(parentEl) {
+      // Kept as its own method so subclasses reuse it instead of copying the block.
+      parentEl
+        .start()
+        .show(this.searchShown_$)
+        .addClass(this.myClass('search'))
+          .tag(this.ClearableSearchField, {
+            data$:        this.menuSearch$,
+            ariaLabel:    this.MENU_SEARCH_LABEL,
+            autocomplete: 'off',
+            inputName:    'menuSearch'
+          })
         .end();
     },
 

@@ -45,9 +45,12 @@ foam.CLASS({
           var startTime = Date.now();
           var select    = self.data.select;
           self.data.select = select;
+          var runVersion = self.data.version;
           self.loading = true;
+          self.data.running = true;
           try {
             await self.data.select.execute(this);
+            self.data.hasError = false;
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
           } catch (error) {
@@ -57,6 +60,8 @@ foam.CLASS({
             this.tag(self.ErrorView, { error: error });
           } finally {
             self.loading = false;
+            // A newer run() has already set running, leave it for that run to clear.
+            if ( self.data.version === runVersion ) self.data.running = false;
           }
         }));
     }
@@ -221,7 +226,7 @@ foam.CLASS({
 
         let proxy = this.ProxyDAO.create();
         let l = () => {
-          if ( this.value && this.value.asDAO ) proxy.delegate = this.value.asDAO();
+          if ( this.value && this.value.asDAO ) proxy.delegate = this.value.asDAO(this.block?.flowName);
         };
 
         this.value$.sub(l);
@@ -381,8 +386,15 @@ foam.CLASS({
       name: 'order',
       section: 'filter',
       onKey: true,
+      preSet: function(o, n) { return n.replaceAll(' ', ''); },
       displayWidth: 60,
-      view: { class: 'foam.core.reflow.ComparatorSuggestedField' }
+      view: function(_, X) {
+        var data = X.data;
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: foam.core.reflow.parser.PropertyParser.create({of: data.dao.of}, X).getSymParser('comparator')
+        };
+      }
     },
     {
       class: 'String',
@@ -390,13 +402,12 @@ foam.CLASS({
       section: 'filter',
       displayWidth: 60,
       onKey: false,
+      preSet: function(o, n) { return n.replaceAll(' ', ''); },
       view: function(_, X) {
-        return {
-          class: 'foam.core.reflow.PropertySuggestedField'
-        };
+        return { class: 'foam.core.reflow.PropertyListView', of: X.data.dao.of };
       },
-      xxxvalidateObj: function(columns) {
-        let a = columns.trim().split(',').map(c => c.trim());
+      validateObj: function(columns) {
+        let a = columns.trim().split(',').map(c => c.trim()).filter(c => c);
 
         for ( let i = 0 ; i < a.length ; i++ ) {
           let of = this.dao.of;
@@ -405,7 +416,7 @@ foam.CLASS({
             let name = names[j];
             if ( ! of ) return 'Inner Property on Non Object: ' + name;
             let p = of.getAxiomByName(name);
-            if ( ! p ) return 'Unknown Property: ' + name;
+            if ( ! p ) { debugger; return 'Unknown Property: ' + name; }
             of = p.of;
           }
         }
@@ -447,6 +458,7 @@ foam.CLASS({
     { class: 'Int',        hidden: true,  name: 'version', transient: true },
     { class: 'Boolean',    hidden: true,  name: 'skipInitialReset_', transient: true },
     { class: 'Boolean',    hidden: true,  name: 'hasError', value: false, transient: true },
+    { class: 'Boolean',    hidden: true,  name: 'running',  transient: true, documentation: 'True from a run request until its select has returned, so a formula can wait on it.' },
     { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
     {
       name: 'readyLatch_',
@@ -483,17 +495,27 @@ foam.CLASS({
     },
         */
 
-    function init() {
+    async function init() {
       this.SUPER();
+
+      // Before the dao check: a block loaded from a saved flow resolves its dao after init,
+      // and a reaction that sets aql then would otherwise never rerun it.
+      this.aql$.sub(this.onFilterChange);
+      this.where$.sub(this.onFilterChange);
+      this.order$.sub(this.onFilterChange);
 
       if ( ! this.dao || ! this.dao.of ) return;
 
       if ( ! this.columns ) {
         this.columns = this.getColumnNamesFromStorage(localStorage.getItem(this.dao.of.id));
       }
-      this.aql$.sub(this.maybeAutoRun);
-      this.where$.sub(this.maybeAutoRun);
-      this.order$.sub(this.maybeAutoRun);
+
+      // TODO: this is a little hackish, should go somewhere else
+      if ( ! this.aql ) {
+        let default_query = await this.dao.cmd('DEFAULT_QUERY_CMD');
+        // Check .aql again since copyFrom() could have been called since the above check
+        if ( default_query && ! this.aql ) this.aql = default_query;
+      }
     },
 
     function addToE(e) {
@@ -545,6 +567,7 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       isEnabled: function(select$errors_) { return ! select$errors_; },
       code: function() {
+        this.running = true;
         this.version++;
       }
     },
@@ -574,6 +597,7 @@ foam.CLASS({
       toolTip: 'Create a Test from Results',
       section: 'actions',
       themeIcon: 'test',
+      availablePermissions: [ 'command.read.test' ],
       // TODO:
 //      isEnabled: function(value) { return this.value; },
       code: async function() {
@@ -606,12 +630,19 @@ foam.CLASS({
       }
     },
     {
+      name: 'onFilterChange',
+      documentation: 'Unmerged, so running is true while the merged maybeAutoRun is still pending.',
+      code: function() {
+        if ( ! this.autoRun ) return;
+        this.running = true;
+        this.maybeAutoRun();
+      }
+    },
+    {
       name: 'maybeAutoRun',
       isMerged: true,
       delay: 250,
-      code: function maybeAutoRun() {
-        if ( this.autoRun ) this.run();
-      }
+      code: function maybeAutoRun() { this.run(); }
     }
   ]
 });

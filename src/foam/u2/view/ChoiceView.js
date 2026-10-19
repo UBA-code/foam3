@@ -107,7 +107,7 @@ foam.CLASS({
         // Upgrade single values to [value, value].
         for ( var i = 0 ; i < nu.length ; i++ ) {
           if ( ! Array.isArray(nu[i]) ) {
-            nu[i] = [ nu[i], foam.String.labelize(nu[i]) ];
+            nu[i] = [ nu[i], foam.String.labelize(nu[i] + '') ];
           }
         }
 
@@ -412,12 +412,12 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       position: relative;
       display: inline-block;
     }
 
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       position: absolute;
       opacity: 0;
       width: 100%;

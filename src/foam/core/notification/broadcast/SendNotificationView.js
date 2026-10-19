@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.core.notification.broadcast',
   name: 'SendNotificationView',
   extends: 'foam.u2.View',
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.core.notification.broadcast.BroadcastNotificationFacade',
@@ -28,18 +29,29 @@ foam.CLASS({
   // Make an abstract SummaryView with this CSS and props for title and primary action,
   // everything else can be populated by the parent view, maybe a border??
   css: `
-    ^ {
+    << {
       padding: 32px;
     }
-    ^container > * + * {
+    <<container > * + * {
       margin-top: 32px;
     }
-    ^button {
+    <<button {
       align-self: flex-end;
     }
   `,
 
+  messages: [
+    { name: 'TITLE', message: 'Send Notification' }
+  ],
+
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       name: 'notificationType',
       class: 'Class',
@@ -66,6 +78,12 @@ foam.CLASS({
     }
   ],
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render() {
       this.data.created = new Date();
       this
@@ -91,4 +109,3 @@ foam.CLASS({
     }
   ]
 });
-

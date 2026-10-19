@@ -28,10 +28,10 @@
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
     }
-    ^suggestions {
+    <<suggestions {
       box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.06), 0px 4px 6px rgba(0, 0, 0, 0.1);
       background-color: $backgroundDefault;
       border: 1px solid $borderDefault;
@@ -44,7 +44,7 @@
       padding: 12px;
       gap: 8px;
     }
-    ^row {
+    <<row {
       color: $textDefault;
       cursor: pointer;
       padding: 8px;
@@ -74,8 +74,13 @@
       of: 'foam.u2.Autocompleter',
       name: 'autocompleter',
       factory: function() {
-        if ( ! this.daoKey ) console.error('No daokey');
-        return this.Autocompleter.create({ dao: this.__subContext__[this.daoKey] })
+        var dao = this.__subContext__[this.daoKey];
+        if ( ! dao ) {
+          console.error('SuggestedTextField: daoKey "' + this.daoKey +
+            '" did not resolve to a DAO in the context; autocomplete will ' +
+            'return no suggestions.');
+        }
+        return this.Autocompleter.create({ dao: dao })
       }
     },
     {

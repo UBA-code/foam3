@@ -44,13 +44,13 @@ foam.CLASS({
   name: 'UnderlinedTabs',
   extends: 'foam.u2.UnstyledTabs',
   css: `
-    ^tabRow {
+    <<tabRow {
       border-bottom: 1px solid $borderLight;
       background-color: $white;
       overflow-x: auto;
       white-space: nowrap;
     }
-    ^tab {
+    <<tab {
       border-top: 3px solid transparent;
       border-bottom: 3px solid transparent;
       display: inline-block;
@@ -58,10 +58,10 @@ foam.CLASS({
       box-sizing: border-box;
       padding: 13px 16px;
     }
-    ^tab:hover {
+    <<tab:hover {
       cursor: pointer;
     }
-    ^tab.selected {
+    <<tab.selected {
       border-bottom: 3px solid $borderBrand;
     }
   `
@@ -84,13 +84,14 @@ foam.CLASS({
       value: '$textBrandSecondary'
     },
     {
+      class: 'foam.u2.ColorToken',
       name: 'tabActiveBackground',
       value: '$backgroundBrandTertiary'
     }
   ],
 
   css: `
-    ^tabRow {
+    <<tabRow {
       background-color: $backgroundDefault;
       border-radius: 4px 4px 0 0;
       border-bottom: 1px solid $borderLight;
@@ -100,7 +101,7 @@ foam.CLASS({
       overflow-x: auto;
       white-space: nowrap;
     }
-    ^tab {
+    <<tab {
       align-items: center;
       background: none;
       border-radius: 4px;
@@ -109,11 +110,11 @@ foam.CLASS({
       justify-content: center;
       padding: 7px 12px;
     }
-    ^tab:hover {
+    <<tab:hover {
       background: $tabActiveBackground;
       cursor: pointer;
     }
-    ^tab.selected {
+    <<tab.selected {
       background: $tabActiveBackground;
       color: $tabActiveColor;
       font-weight: $font-medium;
@@ -129,38 +130,77 @@ foam.CLASS({
   cssTokens: [
     {
       class: 'foam.u2.ColorToken',
-      name: 'tabPrimaryColor',
-      value: '$textBrand'
+      name: 'tabInactiveColor',
+      value: '$textSecondary'
+    },
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'tabActiveColor',
+      value: '$textDefault'
+    },
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'tabActiveBackground',
+      value: '$backgroundDefault'
+    },
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'tabHoverBackground',
+      value: '$backgroundSecondary'
+    },
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'tabRowBackground',
+      value: '$backgroundTertiary'
+    },
+    {
+      class: 'foam.u2.ColorToken',
+      name: 'tabDividerColor',
+      value: '$borderDefault'
+    }
+  ],
+
+  properties: [
+    {
+      class: 'Boolean',
+      name: 'fitContent',
+      documentation: 'When true, the tab row shrinks to fit its tabs (left-aligned) instead of stretching full-width with equal-width tabs'
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      this.enableClass(this.myClass('fit'), this.fitContent$);
     }
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1.2rem;
       --tabRow-padding: 0.4rem;
       --tabRow-radius: 0.8rem;
+      --tabRow-gap: 8px;
     }
-    ^content{
+    <<content{
       flex: 1;
       display: flex;
     }
     /* hacky as U2 add() adds an extra div, remove with U3 */
-    ^content > * {
+    <<content > * {
       flex: 1;
       position: relative;
       width: 100%;
     }
-    ^tabRow {
+    <<tabRow {
       flex: 0 0 auto;
       border-radius: var(--tabRow-radius, 0.4rem);
-      border: 1px solid $borderLight;
-      gap: 8px;
+      gap: var(--tabRow-gap, 8px);
       padding: var(--tabRow-padding, 0.4rem);
       white-space: nowrap;
-      background-color: $backgroundDefault;
-      // box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
+      background-color: $tabRowBackground;
       align-self: center;
       display: grid;
       grid-auto-flow: column;
@@ -168,25 +208,51 @@ foam.CLASS({
       width: 100%;
       overflow: auto;
     }
-    ^tab {
-      border-radius: 3px;
+    <<tab {
       align-items: center;
       background: none;
       border-radius: max(calc(var(--tabRow-radius, 0.4rem) - var(--tabRow-padding, 0.4rem)), 0.2rem);
-      color: $tabPrimaryColor;
+      color: $tabInactiveColor;
       display: flex;
       justify-content: center;
       padding: 8px 12px;
       flex: 1 1 0;
+      position: relative;
     }
-    ^tab:hover {
-      background: $tabPrimaryColor$hover;
-      color: $tabPrimaryColor$foreground;
+    /* Divider between tabs: decorative, so drawn in the grid gap with a
+       pseudo-element instead of a real element in the tab list. */
+    <<tab + <<tab::before {
+      content: '';
+      position: absolute;
+      left: calc(var(--tabRow-gap, 8px) / -2);
+      top: 20%;
+      bottom: 20%;
+      width: 1px;
+      background: $tabDividerColor;
+      transition: opacity 0.15s ease;
+    }
+    /* Hide the dividers touching the highlighted tab so its pill reads as one shape. */
+    <<tab.selected::before,
+    <<tab.selected + <<tab::before,
+    <<tab:hover::before,
+    <<tab:hover + <<tab::before {
+      opacity: 0;
+    }
+    <<tab:hover {
+      background: $tabHoverBackground;
+      color: $tabActiveColor;
       cursor: pointer;
     }
-    ^tab.selected {
-      color: $tabPrimaryColor$foreground;
-      background-color: $tabPrimaryColor;
+    <<tab.selected {
+      color: $tabActiveColor;
+      font-weight: $font-medium;
+      background-color: $tabActiveBackground;
+      box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    <<fit <<tabRow {
+      width: auto;
+      grid-auto-columns: auto;
+      align-self: flex-start;
     }
   `
 });

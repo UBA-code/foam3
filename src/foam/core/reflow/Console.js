@@ -15,163 +15,6 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Flowable',
-
-  topics: [ 'flowUpdated' ],
-
-  imports: [ 'softSelected' ],
-
-  css: `
-    ^dependent {
-      border: 1px solid orange !important;
-    }
-    ^error {
-      color: $textDestructive;
-    }
-  `,
-
-  properties: [
-    {
-      name: 'flowParent',
-      hidden: true,
-      transient: true
-    },
-    {
-      class: 'String',
-      name: 'flowName',
-    },
-    {
-      class: 'String',
-      name: 'error',
-      reactive: false,
-      transient: true,
-      hidden: true,
-      visibility: 'RO',
-      expression: function(value$reactionError_) {
-        // console.log('************** Flowable error:', value$reactionError_);
-        return value$reactionError_;
-      },
-      visibility: function(error) {
-        return error ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RO;
-      }
-    },
-    {
-      class: 'Array',
-      name: 'flowChildren',
-      hidden: true
-    },
-    { name: 'value', hidden: true },
-    {
-      name: 'treeRowRenderer',
-      hidden: true,
-      value: function(e) {
-        e.parentNode.enableClass('locked', this.locked$);
-        e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
-
-        let dependent$ = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1);
-
-        e.enableClass(this.myClass('error'), this.error$);
-        e.parentNode.enableClass(this.myClass('dependent'), dependent$);
-        e.tooltip$ = this.error$;
-        e.add(this.flowName$);
-      }
-    },
-    {
-      name: 'childType',
-      hidden: true,
-      transient: true,
-      documentation: 'Default child type for this flowable',
-      factory: function() { return this.cls_; }
-    },
-    {
-      class: 'StringArray',
-      name: 'dependencies',
-      transient: true
-    },
-    {
-      class: 'Boolean',
-      name: 'locked',
-      transient: true,
-      expression: function(dependencies) {
-        return dependencies.length != 0;
-      }
-    }
-  ],
-
-  methods: [
-    function detachFlowChild(c) {
-      // Helper function to properly detach a flow child
-      // Detach the block's value first (e.g., Script, etc.)
-      if ( c.value && c.value.detach ) {
-        c.value.detach();
-      }
-      // Then detach the block wrapper itself
-      if ( c.detach ) {
-        c.detach();
-      }
-    },
-
-    function toSummary() {
-      return this.flowName;
-    },
-
-    function createFlowChildName(prefix) {
-      for ( var i = 1, name = prefix ; ; ) {
-        name = prefix + i++;
-        if ( ! this.findFlowChildByName(name) ) return name;
-      }
-    },
-
-    function findFlowChildByName(n) {
-      let findEl = inputArr => {
-        if ( ! inputArr?.length ) return;
-        for ( v of inputArr ) {
-          if ( ! v ) continue;
-          if ( v.flowName === n ) {
-            return v;
-          }
-          let ret = findEl(v.flowChildren);
-          if ( ret ) return ret;
-        }
-      };
-      return findEl(this.flowChildren);
-    },
-
-    function addFlowChild(f) {
-      if ( f.deleted_ ) return;
-      f.flowParent = this;
-      this.flowChildren$push(f);
-      this?.addFlowChild_(f);
-    },
-
-    function removeFlowChild(f) {
-      var index = this.flowChildren.indexOf(f);
-      this.flowChildren = this.flowChildren.filter(c => c != f);
-      this?.removeFlowChild_(f);
-
-      if ( this.selected === f ) {
-        if ( this.flowChildren.length > 0 ) {
-          var newIndex = Math.max(0, index - 1);
-          this.selected = this.flowChildren[newIndex];
-        } else {
-          this.selected = null;
-        }
-      }
-    },
-
-    function removeAllFlowChildren() {
-      this.flowChildren.forEach(c => {
-        this.removeFlowChild_(c);
-        this.detachFlowChild(c);
-      });
-      this.flowChildren = [];
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'ReflowHeader',
   extends: 'foam.u2.View',
 
@@ -193,41 +36,41 @@ foam.CLASS({
   ],
 
   css: `
-    ^navigator {
+    <<navigator {
       display: flex;
       align-items: center;
       color: $textSecondary;
       gap: 4px;
     }
-    ^header-container {
+    <<header-container {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    ^chevron {
+    <<chevron {
       color: $textSecondary;
     }
-    ^title input {
+    <<title input {
       border: none;
       color: $textDefault;
     }
-    ^title .foam-u2-TextInputCSS::placeholder {
+    <<title .foam-u2-TextInputCSS::placeholder {
       color: $textDefault;
       opacity: 1;
     }
-    ^header-actions {
+    <<header-actions {
       display: flex;
       gap: 5px;
       align-items: center;
     }
-    ^save-text {
+    <<save-text {
       color: $textSecondary;
     }
-    ^ .foam-u2-view-OverlayActionListView {
+    << .foam-u2-view-OverlayActionListView {
       color: $textDefault;
     }
 
-    ^separator {
+    <<separator {
       display: inline-block;
       width: 1px;
       height: 30px;
@@ -235,7 +78,9 @@ foam.CLASS({
       margin: 0 8px;
     }
 
-    ^name::placeholder {
+    <<name { width: 230px; }
+
+    <<name::placeholder {
       font-style: italic;
     }
   `,
@@ -267,6 +112,7 @@ foam.CLASS({
               .start({
                 class: 'foam.u2.TextField',
                 data$: this.data.value.name$,
+                displayWidth: 70,
                 placeholder: 'Unnamed',
                 onKey: false
               })
@@ -286,7 +132,7 @@ foam.CLASS({
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.RESET, this.CANCEL, this.CLEAR],
+                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.EXPORT_TO_PDF, this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -385,6 +231,9 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
+      isAvailable: function(data$value$childLock) {
+        return ! data$value$childLock;
+      },
       confirmationView: function(X, data) {
         return data.ConfirmationModal.create({
           primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
@@ -404,7 +253,7 @@ foam.CLASS({
       label: 'Benchmark flow',
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
-      themeIcon: 'health',
+      themeIcon: 'speed',
       // Show only when the loadPerf command it invokes is runnable (same permission).
       availablePermissions: [ 'command.read.loadPerf' ],
       isEnabled: function(data$value$name) { return !! data$value$name; },
@@ -415,6 +264,20 @@ foam.CLASS({
           return;
         }
         await this.data.benchmarkFlow_();
+      }
+    },
+    {
+      name: 'exportToPDF',
+      label: 'Export to PDF',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'download',
+      code: async function() {
+        try {
+          await this.data.exportToPDF_();
+        } catch ( e ) {
+          this.notify(e.message, '', this.LogLevel.ERROR, true);
+        }
       }
     },
     {
@@ -443,6 +306,7 @@ foam.CLASS({
         this.mementoMgr.clear();
         flow.version  = undefined;
         flow.revision = undefined;
+        flow.childLock = false;
       }
     },
     {
@@ -500,13 +364,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
     }
-    ^title {
+    <<title {
       font-weight: $font-medium;
       color: $textDefault;
     }
@@ -560,13 +424,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: grid;
       grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: -webkit-fill-available;
     }
-    ^flex-container {
+    <<flex-container {
       display: flex;
       flex-direction: row;
       overflow: auto;
@@ -574,14 +438,14 @@ foam.CLASS({
       height: auto;
       min-height: 0;
     }
-    ^header {
+    <<header {
       padding: 5px 24px;
       height: fit-content;
       max-height: 64px;
       background-color: $backgroundDefault;
       border-bottom: 1px solid $borderLight;
     }
-    ^l {
+    <<l {
       padding: 4px;
       background-color: $backgroundDefault;
       width: 15%;
@@ -589,67 +453,68 @@ foam.CLASS({
       flex: 0 0 auto;
       overflow-y: auto;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
       padding: 16px 16px 0 16px;
     }
-    ^middle-holder {
+    <<middle-holder {
       padding: 0;
       width: 100%;
       background-color: $backgroundTertiary;
       overflow: auto;
       flex: 3 1 50%;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^m {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<m {
       border: 2px dashed $borderLight;
     }
-    ^m {
+    <<m {
       overflow-x: auto;
       background-color: $backgroundDefault;
     }
-    ^r {
+    <<r {
       overflow-y: auto;
       width: 40%;
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
+    <<r .foam-u2-ActionView { min-width: 40px; }
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
       background: $backgroundSecondary;
       height: 100%;
       z-index: 10;
     }
-    ^resize-handle:hover, ^resize-handle:active {
+    <<resize-handle:hover, <<resize-handle:active {
       background: $backgroundBrandSecondary;
     }
 
-    ^r .foam-core-reflow-SinkView, ^r .foam-u2-view-IntView {
+    <<r .foam-core-reflow-SinkView, <<r .foam-u2-view-IntView {
       width: 100%;
     }
 
-    ^ .foam-u2-RangeView-skip {
+    << .foam-u2-RangeView-skip {
       width: 100%;
     }
 
-    ^menuClosed {
+    <<menuClosed {
      width: 60px!important;
      transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
     }
 
-    ^r .foam-u2-PropertyBorder-select {
+    <<r .foam-u2-PropertyBorder-select {
       padding: 5px;
       background-color: $backgroundTertiary;
       border-radius: 4px;
       gap: 10px;
     }
-    ^r .foam-u2-PropertyBorder-view {
+    <<r .foam-u2-PropertyBorder-view {
       width: 100%;
     }
-    ^r .foam-core-reflow-PropertyListView {
+    <<r .foam-core-reflow-PropertyListView {
       justify-content: space-between;
     }
     @media (min-width: /*%DISPLAYWIDTH.XL%*/ 1280px ) {
-      ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+      <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
         padding: 24px 24px 0 24px;
       }
     }
@@ -735,7 +600,7 @@ foam.CLASS({
             show(this.showRight$).
           end().
         end();
-    }
+    },
   ],
 
   listeners: [
@@ -931,12 +796,24 @@ foam.ENUM({
 });
 
 
+// Create an Abstract base class for Console because so
+// we can override the 'route' property in the concrete
+// sub-class. You can't override a mixin property because
+// both properties are technically in the same class.
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Console',
+  name: 'AbstractConsole',
   extends: 'foam.u2.Controller',
   implements: [ 'foam.core.reflow.Flowable' ],
   mixins: [ { path: 'foam.u2.Router', priority: 200 } ],
+  abstract: true
+});
+
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'Console',
+  extends: 'foam.core.reflow.AbstractConsole',
 
   documentation: `
     If you want to embed FLOWs in regular U3 views without all of the editing UI, you can do it like this:
@@ -945,10 +822,13 @@ foam.CLASS({
     this.add(self.Console.create({route: 'name of flow to load', flowMode: foam.core.reflow.FlowMode.PRESENTATION_ONLY});
   `,
 
+  implements: [ 'foam.core.reflow.TreeCellFormatter' ],
+
   requires: [
-    'foam.core.ai.ConversationalLLMService',
+    'foam.ai.llm.ConversationalLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
+    'foam.core.reflow.DependencyScanner',
     'foam.core.reflow.Flow',
     'foam.core.reflow.FlowMode',
     'foam.core.reflow.Flowable',
@@ -961,7 +841,7 @@ foam.CLASS({
     'foam.core.reflow.ReflowToolBar',
     'foam.core.reflow.ToolbarControl',
     'foam.dao.ArrayDAO',
-    'foam.flow.Document',
+    'foam.log.LogLevel',
     'foam.u2.Link',
     'foam.u2.dialog.ConfirmationModal'
   ],
@@ -969,6 +849,7 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'notify',
     'params',
     'setTimeout',
     'toolbarControlDAO',
@@ -1003,6 +884,8 @@ foam.CLASS({
     'moveFlowChild',
     'moveFlowChildAfter',
     'out',
+    'perfCapture_',
+    'refreshFlowScope',
     'save',
     'scope',
     'scrollToBottom',
@@ -1010,11 +893,12 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'isChildLocked',
     'value as flow'
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -1023,7 +907,7 @@ foam.CLASS({
       align-items: center;
       justify-content: center;
     }
-    ^output {
+    <<output {
       flex: 1;
       overflow: auto;
       text-align: left;
@@ -1031,7 +915,7 @@ foam.CLASS({
       position: relative;
       overflow-anchor: none;
     }
-    ^loading-indicator {
+    <<loading-indicator {
       position: absolute;
       top: 200px;
       left: 50%;
@@ -1044,34 +928,40 @@ foam.CLASS({
       background: $backgroundDefault;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: $z-modal;
       width: 400px;
       max-width: 90%;
       justify-content: center;
     }
-    ^loading-header {
+    <<loading-header {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
-    ^loading-indicator .foam-u2-ProgressView {
+    <<loading-indicator .foam-u2-ProgressView {
       width: 100%;
     }
-    ^loading-text {
+    <<loading-text {
       color: $textDefault;
       font-size: 16px;
       font-weight: $font-medium;
       text-align: center;
     }
-    ^loading-progress {
+    <<loading-progress {
       color: $textSecondary;
       font-size: 14px;
       text-align: center;
     }
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
-      color: orange !important;
+      color: $orange500 !important;
+    }
+    <<element-row-icon , <<element-row-icon svg {
+      color: $textBrand;
+      fill: currentColor;
+      width: 24px;
+      height: 24px;
     }
   `,
 
@@ -1215,6 +1105,15 @@ foam.CLASS({
       value: 0
     },
     {
+      name: 'perfCapture_',
+      hidden: true,
+      transient: true,
+      documentation: `Per-block cost rows for the load in progress: the loadPerf command
+        points this at the capturing Perf's buffer, and onScriptChange drops it when the
+        load ends. Held per Console rather than on window so a perf block detaching
+        mid-load (clearFlow) cannot reach another capture's buffer.`
+    },
+    {
       class: 'Int',
       name: 'loadingPercentage_',
       hidden: true,
@@ -1245,7 +1144,24 @@ foam.CLASS({
         return value$label || 'Flow';
       }
     },
-    'flowErrors_'
+    'flowErrors_',
+    {
+      class: 'Boolean',
+      name: 'renaming_',
+      transient: true,
+      hidden: true,
+      documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    },
+    {
+      class: 'Boolean',
+      name: 'isChildLocked',
+      hidden: true,
+      transient: true,
+      documentation: 'Mirrors value.childLock so it can be exported on its own.',
+      expression: function(value$childLock) {
+        return !! value$childLock;
+      }
+    }
   ],
 
   methods: [
@@ -1315,7 +1231,41 @@ foam.CLASS({
       await this.eval_('loadPerf("' + this.value.name + '")');
     },
 
-    async function includeScript(script, parent, skipParse) {
+    async function exportToPDF_() {
+      /** Render each top-level Block onto its own landscape page.
+          html2pdf is loaded from the CDN on demand; its URL is already whitelisted
+          in src/cspdirectives.jrl under the 'foam-url' script-src key. **/
+      await foam.u2.JsLib.create({
+        src: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js'
+      }).installLib();
+
+      // installLib() resolves even when the script fails to load, so check the global.
+      var html2pdf = this.window.html2pdf;
+      if ( ! html2pdf ) throw new Error('The PDF library could not be loaded.');
+
+      var out    = this.out?.element_;
+      var blocks = out ? out.querySelectorAll(':scope > .block') : [];
+      if ( ! blocks.length ) throw new Error('There is nothing to export.');
+
+      var worker = html2pdf().set({
+        margin:      0.5,
+        filename:    ( this.value.name || 'flow' ) + '.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'in', format: 'a4', orientation: 'landscape' }
+      }).from(blocks[0]).toContainer().toCanvas().toImg().toPdf();
+
+      for ( var i = 1 ; i < blocks.length ; i++ ) {
+        worker = worker.
+          get('pdf').
+          then(function(pdf) { pdf.addPage('a4', 'landscape'); }).
+          from(blocks[i]).toContainer().toCanvas().toImg().toPdf();
+      }
+
+      await worker.save();
+    },
+
+    async function includeScript(script, parent, skipParse, perfParent) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
@@ -1335,15 +1285,22 @@ foam.CLASS({
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
-        // Per-block attribution for the reflow Perf block: when a capture set
-        // window.__perfCapture__ to an array, record each TOP-LEVEL block's cost.
+        // Per-block attribution for the reflow Perf block: when a capture pointed
+        // perfCapture_ at its buffer, record this block's cost. A nested call writes
+        // into the row of the block it ran inside, so the report keeps the block tree.
         // No-op (single array check) when not capturing.
-        var perfCap_ = ( ! parent && this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : null;
-        var perfT_, perfDom_, perfHeap_;
-        if ( perfCap_ ) {
+        var perfSink_ = perfParent ? perfParent.children :
+          ( Array.isArray(this.perfCapture_) ? this.perfCapture_ : null );
+        var perfRow_ = null, perfT_, perfDom_, perfHeap_;
+        if ( perfSink_ ) {
           perfT_    = this.window.performance.now();
           perfDom_  = this.window.document.querySelectorAll('*').length;
           perfHeap_ = ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0;
+          // Pushed before the block runs so children have a row to attach to; the
+          // costs land on it once the block and its children are done.
+          // flowName from the script (reliable) since currentBlock may become a child.
+          perfRow_ = { flowName: c.flowName || c.cmd, cmd: c.cmd, start: perfT_, children: [] };
+          perfSink_.push(perfRow_);
         }
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
@@ -1377,29 +1334,22 @@ foam.CLASS({
           await this.currentBlock.value?.onLoad?.();
         } catch (error) {
           console.error('Error loading block:', this.currentBlock.flowName, error);
-          debugger;
           this.currentBlock.value = this.BadBlock.create({block: this.currentBlock, /*cmd: c.cmd,*/ script: c, error: error.toString()});
           // Continue processing other blocks even if this one failed
         }
 
         if ( c.flowChildren ) {
-          await this.includeScript(c.flowChildren, this.currentBlock, true);
+          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_);
         }
 
         // Measure AFTER onLoad + children: that is where a block's real work runs
         // (script autoRun, DAO select, DOM render). eval_ alone only creates the block.
-        // flowName from the script (reliable) since currentBlock may now be a child.
-        if ( perfCap_ ) {
+        if ( perfRow_ ) {
           var perfEnd_ = this.window.performance.now();
-          perfCap_.push({
-            flowName:  c.flowName || c.cmd,
-            cmd:       c.cmd,
-            start:     perfT_,        // absolute timestamps so the Perf block can bucket
-            end:       perfEnd_,      // profiler samples into this block's window
-            ms:        perfEnd_ - perfT_,
-            domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
-            heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
-          });
+          perfRow_.end       = perfEnd_;   // absolute timestamps so the Perf block can
+          perfRow_.ms        = perfEnd_ - perfT_;   // bucket profiler samples per block
+          perfRow_.domDelta  = this.window.document.querySelectorAll('*').length - perfDom_;
+          perfRow_.heapDelta = ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_;
         }
       }
     },
@@ -1873,39 +1823,32 @@ foam.CLASS({
       }
     },
 
-    function updateDependencies() {
-      let fc = this.flowChildren;
+    function updateDependencies(blocks) {
+      /** blocks: the parsed script JSON. The scanner's edges run from a referenced
+          block to the block referencing it, so a block's `dependencies` holds its
+          dependents -- Flowable.treeRowRenderer reads them as "Dependents:".
 
-      function hasReactionDependency(c1, c2) {
-        if ( c2.value ) {
-          for ( let r in c2.value.reactions_ ) {
-            let str = Function.prototype.toString.call(c2.value.reactions_[r]);
-            if ( str.indexOf(c1.flowName) != -1 )
-              return true;
-          }
-        }
-        return false;
-      }
+          flowChildren is flattened in the same document order the scanner walks
+          the JSON, so the two sides line up by flowName. */
+      var graph = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
 
-      for ( let i = 0 ; i < fc.length ; i++ ) {
-        let c  = fc[i];
-        let ds = [];
+      var idToName = {};
+      graph.nodes.forEach(n => { idToName[n.id] = n.name; });
 
-        for ( let j = i+1 ; j < fc.length ; j++ ) {
-          let c2 = fc[j];
+      var dependents = {};
+      graph.edges.forEach(e => {
+        var source = idToName[e.source];
+        ( dependents[source] || ( dependents[source] = [] ) ).push(idToName[e.target]);
+      });
 
-          if ( c2.cmd.indexOf(c.flowName) != -1 || hasReactionDependency(c, c2) ) {
-            ds.push(c2.flowName);
-          }
-        }
+      var flat    = [];
+      var flatten = fs => fs.forEach(f => { flat.push(f); flatten(f.flowChildren); });
+      flatten(this.flowChildren);
 
-        c.dependencies = ds;
-      }
+      flat.forEach(f => { f.dependencies = [...new Set(dependents[f.flowName] || [])]; });
     },
 
     function generateScriptString() {
-      this.updateDependencies();
-
       var json = foam.json.Outputter.create({
         pretty: true,
         strict: true,
@@ -1915,7 +1858,15 @@ foam.CLASS({
         propertyPredicate: function(_, p) { return p.name === 'reactions_' || ( ! p.externalTransient && ! p.networkTransient ); }
       });
 
-      return json.stringify(this.flowChildren);
+      var script = json.stringify(this.flowChildren);
+
+      try {
+        this.updateDependencies(JSON.parse(script));
+      } catch (e) {
+        console.warn('Dependency scan skipped, script is not strict JSON', e);
+      }
+
+      return script;
     },
 
     function generateScript() {
@@ -1931,6 +1882,102 @@ foam.CLASS({
       } finally {
         this.feedback_ = prev;
       }
+    },
+
+    function deleteFlowChild(block) {
+      /** A block's `dependencies` names the blocks that read it. Walk them
+          breadth-first to the whole group that breaks with it, and offer to
+          remove the group in one step. Each block goes out through its parent;
+          the merged onFlowChildrenChange then writes the script once, so undo
+          brings the whole group back together. */
+      var doomed = [ block ];
+      var via    = {};
+      for ( var i = 0 ; i < doomed.length ; i++ ) {
+        doomed[i].dependencies.forEach(name => {
+          var d = this.findFlowChildByName(name);
+          if ( d && doomed.indexOf(d) == -1 ) { via[name] = doomed[i].flowName; doomed.push(d); }
+        });
+      }
+
+      var remove = () => doomed.forEach(b => {
+        b.deleted_ = true;
+        b.flowParent.removeFlowChild(b);
+      });
+
+      if ( doomed.length == 1 ) { remove(); return; }
+
+      var others = doomed.slice(1);
+      var modal  = this.ConfirmationModal.create({
+        title: 'Deleting "' + block.flowName + '"',
+        modalStyle: 'DESTRUCTIVE',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'deleteAll',
+          label: 'Delete all ' + doomed.length,
+          code: remove
+        })
+      });
+
+      modal.add(others.length + ( others.length == 1 ? ' other block depends' : ' other blocks depend' ) +
+        ' on it: ' +
+        others.map(b => b.flowName + ( via[b.flowName] === block.flowName ? '' : ' (via ' + via[b.flowName] + ')' )).join(', ') +
+        '. Remove ' + ( others.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
+    },
+
+    function renameBack_(block, name) {
+      /** Put a name back without the write re-entering onBlockRenamed. */
+      this.renaming_ = true;
+      try { block.flowName = name; } finally { this.renaming_ = false; }
+    },
+
+    function onBlockRenamed(block, oldName, newName) {
+      /** A rename changes the block's own name and nothing else -- every reference to
+          it elsewhere still spells the old one, so the flow breaks on the next load.
+          Name the blocks that reference it, and offer to rewrite them with it. */
+      if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
+
+      var live = this.flattenFlow();
+
+      // Two blocks of one name collapse in the flow scope, which binds the last of
+      // them and leaves the other unreachable. Bounce the rename instead of landing it.
+      if ( live.filter(f => f.flowName === newName).length > 1 ) {
+        this.notify('"' + newName + '" is already used by another block.', '', this.LogLevel.ERROR, true);
+        this.renameBack_(block, oldName);
+        return;
+      }
+
+      // `dependencies` was last refreshed while the block still carried its old
+      // name, so it still lists the blocks that spell it.
+      var dependents = block.dependencies;
+      if ( ! dependents.length ) return;
+
+      // Put the old name back while the question is open: a confirmed rename then
+      // lands as one script write, name and references together, so undo takes it
+      // back in one step, and Cancel has nothing left to undo.
+      this.renameBack_(block, oldName);
+
+      var self  = this;
+      var modal = this.ConfirmationModal.create({
+        title: 'Renaming "' + oldName + '" to "' + newName + '"',
+        modalStyle: 'WARN',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'renameAndUpdate',
+          label: 'Rename and Update References',
+          code: function() {
+            var blocks = JSON.parse(self.generateScriptString());
+            self.DependencyScanner.create({ ignore: Object.keys(self.localScope) }).rewrite(blocks, { [oldName]: newName });
+            self.value.script = JSON.stringify(blocks);
+          }
+        })
+      });
+
+      modal.add(dependents.length + ( dependents.length == 1 ? ' other block refers' : ' other blocks refer' ) +
+        ' to this name: ' + dependents.join(', ') + '. Update ' + ( dependents.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
     },
 
     async function checkForAutosavedScript(scriptName) {
@@ -2003,6 +2050,22 @@ foam.CLASS({
         modal.add('There are unsaved changes. Do you want to load them?');
         self.add(modal);
       });
+    },
+
+    function treeCellFormatter(e) {
+      // Add icon for the flow "block"
+      e.add(this.slot(function() {
+        return this.E().start(foam.u2.tag.Image, {
+          glyph: 'flow',
+          embedSVG: true
+        }).addClass(this.myClass('element-row-icon')).end();
+      }));
+    },
+
+    function isChildLocked_() {
+      if ( ! this.value.childLock ) return false;
+      this.notify('This Flow is locked: blocks cannot be added, moved or deleted.', '', this.LogLevel.WARN, true);
+      return true;
     }
   ],
 
@@ -2074,6 +2137,9 @@ foam.CLASS({
     {
       name: 'clear',
       code: function() {
+        // Don't clear if the flow is locked
+        if ( this.isChildLocked_() ) return;
+
         this.clearFlow();
         this.focusInput();
         this.flowName = '';
@@ -2192,6 +2258,10 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+
+          // A capture collects the load it armed and no more: dropping the buffer
+          // here bounds it to one load even when includeScript throws.
+          this.perfCapture_ = null;
 
           // Reset progress counters
           this.loadingProgress_ = 0;

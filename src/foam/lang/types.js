@@ -46,6 +46,10 @@ foam.CLASS({
     {
       name: 'adapt',
       value: function(_, a, p) {
+        // Fast path: an already-string value needs no adaptation. Skips the
+        // foam.Object.isInstance check and toString() call that every string
+        // set would otherwise incur (hot in bulk data import).
+        if ( foam.String.isInstance(a) ) return a;
         if ( foam.Object.isInstance(a) ) {
           if ( a[foam.locale] !== undefined )
             return a[foam.locale];
@@ -73,10 +77,12 @@ foam.CLASS({
 
   documentation: 'A String which needs to be internationalized before being displayed to users.',
 
+  /*
   properties: [
    {
      name: 'getter_',
      value: function(proto, prop, obj, key) {
+       console.log('******* I18N getter_', prop, obj, key);
        if ( foam.lang.I18NString.GETTER__ ) return foam.lang.I18NString.GETTER__(proto, prop, obj, key);
        var msg_ = obj.instance_[key];
        if ( ! foam.i18n || ! foam.xmsg ) return msg_;
@@ -88,7 +94,7 @@ foam.CLASS({
      preSet: function(o, n) {
        var prop = this;
        var name = this.name;
-       if ( ! foam.i18n || ! foam.xmsg ) return n;
+       // if ( ! foam.i18n || ! foam.xmsg ) return n;
        n.apply = function(o, a) {
          var ret = n.call(o, a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
          if ( ! foam.i18n || ! foam.xmsg ) return ret;
@@ -96,13 +102,40 @@ foam.CLASS({
        };
        return n;
      }
-     /*
      value: function(o, n, prop) {
        if ( ! foam.i18n || ! foam.xmsg || ! prop.sourceCls_ ) return n;
        return foam.i18n.Lib.createText(prop.sourceCls_.id + '.' + prop.name, n);
      }
-     */
    }
+          ],
+*/
+
+  methods: [
+    function installInProto(proto) {
+      this.SUPER(proto);
+
+      const desc = Object.getOwnPropertyDescriptor(proto, this.name);
+
+      if ( ! desc ) return;
+
+      const originalGet = desc.get;
+
+      if ( ! originalGet ) return;
+
+      const prop = this;
+
+      Object.defineProperty(proto, this.name, {
+        get: function() {
+          const value = originalGet.call(this);
+          if ( foam.lang.I18NString.GETTER__ ) {
+            foam.lang.I18NString.GETTER__(proto, prop, this, prop.name);
+          }
+          return value;
+        },
+        set: desc.set,
+        configurable: true
+      });
+    }
   ]
 });
 
@@ -197,17 +230,17 @@ foam.CLASS({
       value: function (_, d) {
         if ( d === undefined || d === null ) return d;
         var originalDate = d;
-        if ( typeof d === 'number' )
+        if ( typeof d === 'number' ) {
           d = new Date(d);
-
-        if ( typeof d === 'string' ) {
+        } else if ( typeof d === 'string' ) {
           d = foam.util.DateUtil.parseDateString(d);
         }
 
         if ( d == foam.Date.MAX_DATE || d == foam.Date.MIN_DATE )
           return d;
 
-        if ( foam.Date.isInstance(d) ) {
+        // Convert to Noon if not already at Noon
+        if ( foam.Date.isInstance(d) && d.getTime() % 86400000 != 43200000 ) {
           // Convert to Noon UTC
           d = new Date(Date.UTC(
             d.getFullYear(),
@@ -688,6 +721,51 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.lang',
+  name: 'FloatArray',
+  extends: 'Property',
+
+  documentation: 'An array of Float values.',
+  label: 'List of decimal numbers',
+
+  properties: [
+    { name: 'of', value: 'Float' },
+    ['isDefaultValue', function(v) { return ! v || ! v.length; }],
+    ['factory',        function() { return []; }],
+    [
+      'adapt',
+      function(_, v, prop) {
+        // accept typed arrays (e.g. Float32Array, Float64Array)
+        if ( ArrayBuffer.isView(v) ) v = Array.from(v);
+        if ( ! Array.isArray(v) ) return [];
+        var copy;
+        for ( var i = 0 ; i < v.length ; i++ ) {
+          if ( typeof v[i] !== 'number' ) {
+            if ( ! copy ) copy = v.slice();
+            copy[i] = prop.adaptArrayElement.call(this, v[i], prop);
+          }
+        }
+        return copy || v;
+      }
+    ],
+    ['adaptArrayElement', function(o) { return parseFloat(o); }],
+    [
+      'assertValue',
+      function(v, prop) {
+        if ( v === null ) return;
+        foam.assert(Array.isArray(v),
+          prop.name, 'Tried to set FloatArray to non-array type.');
+        for ( var i = 0 ; i < v.length ; i++ ) {
+          foam.assert(typeof v[i] === 'number',
+            prop.name, 'Element', i, 'is not a number', v[i]);
+        }
+      }
+    ]
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.lang',
   name: 'Class',
   extends: 'Property',
 
@@ -907,8 +985,24 @@ foam.CLASS({
         const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
+          // stored value is already minor units — format's contract
           if ( unitProp )
-            return unitProp.format(unitProp.floatAmount(val), excludeUnit, false);
+            return unitProp.format(val, excludeUnit, false);
+        }
+        return val;
+      }
+    },
+    {
+      name: 'unitPropValueToPlainString',
+      documentation: `
+        Export with 'Formatted values' unchecked: plain number at the currency's
+        precision so spreadsheets can parse and sum the column.
+      `,
+      value: async function(x, val, unitPropName) {
+        const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
+        if ( unitPropName && currencyDAO ) {
+          const unitProp = await currencyDAO.find(unitPropName);
+          if ( unitProp ) return unitProp.formatPrecision(val);
         }
         return val;
       }
@@ -946,8 +1040,30 @@ foam.CLASS({
         const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
+          // DoubleUnitValue stores major units; format takes minor —
+          // convert at this edge
           if ( unitProp )
-            return unitProp.format(val, excludeUnit, false);
+            return unitProp.format(unitProp.minorAmount(val), excludeUnit, false);
+        }
+        return val;
+      }
+    },
+    {
+      name: 'unitPropValueToPlainString',
+      documentation: `
+        Export with 'Formatted values' unchecked: plain number at the currency's
+        precision so spreadsheets can parse and sum the column.
+        toFixed also collapses float noise; the '-' is stripped off -0.00.
+      `,
+      value: async function(x, val, unitPropName) {
+        const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
+        if ( unitPropName && currencyDAO ) {
+          const unitProp = await currencyDAO.find(unitPropName);
+          if ( unitProp ) {
+            var s = Number(val).toFixed(unitProp.precision);
+            if ( parseFloat(s) === 0 ) s = s.replace('-', '');
+            return s;
+          }
         }
         return val;
       }
@@ -1359,6 +1475,11 @@ foam.CLASS({
       name: 'label',
       expression: function(name) { return foam.String.labelize(name); }
     },
+    {
+      class: 'I18NString',
+      name: 'plural',
+      expression: function(label) { return foam.String.pluralize(label); }
+    },
     { class: 'Boolean', name: 'abstract' }
   ]
 });
@@ -1468,7 +1589,34 @@ foam.CLASS({
           if ( n.summary != undefined ) this[`${(prop || this).name}$summary_`] = n.summary;
           return n.id;
         }
-        return n;
+        if ( ! foam.String.isInstance(n) ) return n;
+
+        var v = n.trim();
+        if ( ! v ) return v;
+
+        // Normalize numeric variants for ISO 4217 numeric codes (e.g. "36" => "036").
+        if ( /^\d+$/.test(v) ) return v.padStart(3, '0');
+
+        return v.toUpperCase();
+      }
+    },
+    {
+      name: 'postSet',
+      value: function(oldValue, newValue, prop) {
+        if ( ! newValue ) return;
+
+        // Non-numeric currency IDs are already normalized by adapt().
+        if ( foam.String.isInstance(newValue) && Number.isNaN(Number(newValue)) ) return;
+
+        prop.normalize(newValue, prop, this).then(function(normalized) {
+          if ( ! normalized ) return;
+
+          // Avoid stale async overwrite if the property changed again.
+          if ( this[prop.name] !== newValue ) return;
+          if ( normalized === newValue ) return;
+
+          this[prop.name] = normalized;
+        }.bind(this)).catch(function() {});
       }
     },
     {
@@ -1496,7 +1644,10 @@ foam.CLASS({
          **/
         if ( foam.String.isInstance(value) && Number.isNaN(Number(value)) ) return value;
 
-        var currency = await obj.__context__[prop.targetDAOKey].find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
+        var dao = obj && obj.__context__ && obj.__context__[prop.targetDAOKey];
+        if ( ! dao ) return value;
+
+        var currency = await dao.find(prop.EQ(foam.lang.Currency.NUMERIC_CODE, Number(value)));
 
         if ( currency ) {
           return currency.id;
@@ -1553,7 +1704,7 @@ foam.CLASS({
 })
 
 foam.CLASS({
-  package: 'foam.lang',  
+  package: 'foam.lang',
   name: 'CountryCode',
   extends: 'Reference',
   implements: [ 'foam.mlang.Expressions' ],
@@ -1660,12 +1811,14 @@ foam.CLASS({
       }
     }
   ]
-})
+});
+
 
 foam.CLASS({
   package: 'foam.lang',
   name: 'TimeUnitValue',
   extends: 'Int',
+
   properties: [
     {
       class: 'String',

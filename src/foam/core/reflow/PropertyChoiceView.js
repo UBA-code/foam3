@@ -27,7 +27,7 @@ foam.CLASS({
   documentation: 'Citation view for properties showing label and name in a vertical stacked layout',
 
   css: `
-    ^row {
+    <<row {
       display: flex;
       overflow-x: hidden;
       width: 100%;
@@ -36,17 +36,17 @@ foam.CLASS({
       border-bottom: 1px solid $borderXLight;
     }
 
-    ^row:last-child {
+    <<row:last-child {
       border-bottom: none;
     }
 
-    ^label {
+    <<label {
       font-size: 14px;
       font-weight: $font-regular;
       line-height: 1.2;
     }
 
-    ^name {
+    <<name {
       font-family: monospace;
       font-size: 12px;
       color: $textSecondary;
@@ -72,89 +72,12 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'PropertyChoiceView_',
-  extends: 'foam.u2.view.RichChoiceView',
-
-  properties: [
-    {
-      name: 'forCls',
-      postSet: function(_, value) {
-        this.rebuildSections();
-      }
-    },
-    {
-      name: 'predicate',
-      class: 'foam.mlang.predicate.PredicateProperty',
-      factory: function() {
-        return foam.mlang.predicate.True.create();
-      }
-    },
-    {
-      name: 'search',
-      value: true
-    },
-    {
-      name: 'idProperty',
-      value: 'name'
-    },
-    {
-      name: 'choosePlaceholder',
-      value: 'Choose Property'
-    },
-    {
-      name: 'rowView',
-      factory: function() {
-        return { class: 'foam.core.reflow.PropertyCitationView' };
-      }
-    },
-    {
-      name: 'sections',
-      factory: function() {
-        if ( ! this.forCls ) return [
-          {
-            heading: 'Properties',
-            dao: foam.dao.ArrayDAO.create({ of: foam.lang.Property, array: [] }),
-            searchBy: [ foam.lang.Property.NAME ]
-          }
-        ];
-        let arr = this.forCls.getAxiomsByClass(foam.lang.Property)
-          .filter(p => p.showInPropertyChoice)
-          .filter(p => this.predicate.f(p))
-          .sort(foam.lang.Property.NAME.compare);
-
-        return [
-          {
-            heading: 'Properties',
-            dao: foam.dao.ArrayDAO.create({ of: foam.lang.Property, array: arr }),
-            searchBy: [ foam.lang.Property.NAME ]
-          }
-        ];
-      }
-    }
-  ],
-
-  methods: [
-    function rebuildSections() {
-      this.clearProperty('sections');
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'PropertyChoiceView',
   extends: 'foam.u2.View',
-
-  requires: [ 'foam.core.reflow.PropertyChoiceView_' ],
 
   properties: [
     'forCls',
     'propName',
-    {
-      name: 'placeholder',
-      value: 'Choose Property'
-    },
     {
       name: 'predicate',
       class: 'foam.mlang.predicate.PredicateProperty',
@@ -174,18 +97,30 @@ foam.CLASS({
 
       var self = this;
 
+      // A NamedProperty names a column by propName rather than holding the axiom, as a flow
+      // does when the block's DAO class is generated at run time. Show that name, and keep
+      // an edit by name, so the block does not pin itself to one run's class.
       this.data$.relateTo(
         this.propName$,
-        function propToName(p) { return p ? p.name : ''; },
-        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n) : null; }
+        function propToName(p) {
+          if ( ! p ) return '';
+          return foam.mlang.predicate.NamedProperty.isInstance(p) ? p.propName : p.name;
+        },
+        function nameToProp(n) {
+          if ( ! n ) return null;
+          if ( foam.mlang.predicate.NamedProperty.isInstance(self.data) ) {
+            return foam.mlang.predicate.NamedProperty.create({ propName: n.trim() });
+          }
+          return self.forCls.getAxiomByName(n.trim());
+        }
       );
 
-      this.start(this.PropertyChoiceView_, {
-        forCls: this.forCls,
+      this.tag(foam.parse.auto.SmartView, {
         data$: this.propName$,
-        predicate: this.predicate,
-        choosePlaceholder: this.placeholder,
-        allowClearingSelection: this.allowClearingSelection
+        parser: foam.core.reflow.parser.PropertyParser.create({
+          of: this.forCls,
+          predicate: this.predicate
+        }, this)
       });
     }
   ]

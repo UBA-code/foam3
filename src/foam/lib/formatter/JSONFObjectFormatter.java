@@ -111,14 +111,27 @@ public class JSONFObjectFormatter
   }
 
   public void output(String s) {
-    append('"');
-    escapeAppend(s);
-    append('"');
+    if ( multiLineOutput_ && s != null && s.indexOf('\n') >= 0 ) {
+      append('\n');
+      append("\"\"\"");
+      append(escapeMultiline(s));
+      append("\"\"\"");
+    } else {
+      append('"');
+      escapeAppend(s);
+      append('"');
+    }
   }
 
   public void escapeAppend(String s) {
     if ( s == null ) return;
     foam.lib.json.Util.escape(s, builder());
+  }
+
+  public String escapeMultiline(String s) {
+    // Same as foam.lib.json.Outputter.escapeMultiline(): only backslashes are
+    // doubled; the parser's escape handling halves them again on replay.
+    return s.replace("\\", "\\\\");
   }
 
   public void output(short val) { append(val); }
@@ -130,16 +143,28 @@ public class JSONFObjectFormatter
   public void output(long val) { append(val); }
 
 
-  public void output(float val) { append(val); }
+  public void output(float val) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
-  public void output(double val) { append(val); }
+  public void output(double val) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
+    append(val);
+  }
 
 
   public void output(boolean val) { append(val); }
 
 
-  protected void outputNumber(Number value) { append(value); }
+  protected void outputNumber(Number value) {
+    if ( value instanceof Double || value instanceof Float ) {
+      double d = value.doubleValue();
+      if ( Double.isNaN(d) || Double.isInfinite(d) ) { append("null"); return; }
+    }
+    append(value);
+  }
 
   public void output(String[] arr) { output((Object[]) arr); }
 
@@ -181,6 +206,9 @@ public class JSONFObjectFormatter
     if ( map == null ) return;
 
     append('{');
+    depth_++;
+    if ( map.size() > 1 ) addInnerNewline();
+
     Iterator keys = map.keySet().iterator();
     while ( keys.hasNext() ) {
       Object key   = keys.next();
@@ -188,8 +216,14 @@ public class JSONFObjectFormatter
       output(key == null ? "" : key.toString());
       append(':');
       output(value);
-      if ( keys.hasNext() ) append(COMMA);
+      if ( keys.hasNext() ) {
+        append(COMMA);
+        addInnerNewline();
+      }
     }
+
+    depth_--;
+    if ( map.size() > 1 ) addInnerNewline();
     append('}');
   }
 
@@ -203,7 +237,10 @@ public class JSONFObjectFormatter
     Iterator iter = list.iterator();
     while ( iter.hasNext() ) {
       output(iter.next());
-      if ( iter.hasNext() ) append(COMMA);
+      if ( iter.hasNext() ) {
+        append(COMMA);
+        addInnerNewline();
+      }
     }
 
     depth_--;
@@ -245,7 +282,7 @@ public class JSONFObjectFormatter
 
   protected void outputFObjectPropertyHeader(PropertyInfo prop) {
     if ( prop == null ) return;
-    append(COMMA);
+    maybeAppendComma();
     addInnerNewline();
     outputKey(getPropertyName(prop));
     append(':');
@@ -340,6 +377,38 @@ public class JSONFObjectFormatter
         output((byte[][]) value);
       } else if ( value instanceof byte[] ) {
         output((byte[]) value);
+      } else if ( value instanceof float[] ) {
+        float[] arr = (float[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof double[] ) {
+        double[] arr = (double[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof int[] ) {
+        int[] arr = (int[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof long[] ) {
+        long[] arr = (long[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
       } else {
         output((Object[]) value);
       }
@@ -422,6 +491,21 @@ public class JSONFObjectFormatter
 
       outputFObjectPropertyHeader(parentProp);
       ((foam.lib.json.OutputJSON) newFObject).formatJSON(this);
+      return true;
+    }
+
+    // A delta between two different classes is not computable: the loop below walks
+    // the new class's properties and compares each against the old object, so a
+    // property the old class does not have throws a ClassCastException, which the
+    // journal swallows and then writes nothing. Output the whole object instead, so
+    // re-putting a record under a subclass survives a replay.
+    if ( oldFObject != null && newFObject.getClassInfo() != oldFObject.getClassInfo() ) {
+      int mark = builder().length();
+      outputFObjectPropertyHeader(parentProp);
+      output(newFObject, defaultClass, parentProp);
+      // output() undoes itself when it wrote no properties, so roll the header back
+      // with it rather than leaving a dangling key.
+      if ( builder().length() == mark ) return false;
       return true;
     }
 
@@ -681,11 +765,13 @@ public class JSONFObjectFormatter
   }
 
   public void output(float val, int precision) {
+    if ( Float.isNaN(val) || Float.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }
 
   public void output(double val, int precision) {
+    if ( Double.isNaN(val) || Double.isInfinite(val) ) { append("null"); return; }
     // TODO: faster
     append(String.format("%." + precision + "f", val));
   }
