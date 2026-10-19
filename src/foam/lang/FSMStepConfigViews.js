@@ -980,7 +980,7 @@ foam.CLASS({
           this.wizardSteps[this.currentStepIndex].transitions?.includes(this.wizardSteps[this.currentStepIndex-1]?.name);
       },
       isEnabled: function(currentStepIndex, isLoading, lockInitialStep) {
-        return ! isLoading && currentStepIndex > ( lockInitialStep ? 1 : 0 );
+        return ! isLoading;
       },
       code: async function() {
         var prevFsmValue = this.getPreviousFSMValue();
