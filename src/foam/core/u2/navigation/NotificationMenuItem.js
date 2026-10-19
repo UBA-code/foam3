@@ -31,15 +31,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: normal;
       position: relative;
     }
-    ^bell {
+    <<bell {
       align-items: center;
       border: 1px solid transparent;
-      border-radius: $buttonRadius;
+      border-radius: $foam.u2.tag.Button.buttonRadius;
       box-sizing: border-box;
       display: inline-flex;
       gap: 8px;
@@ -48,7 +48,7 @@ foam.CLASS({
       outline: none;
       text-align: center;
     }
-    ^ .dot {
+    << .dot {
       align-items: center;
       background: $destructive400;
       border-radius: 50%;
@@ -62,12 +62,12 @@ foam.CLASS({
       text-align: center;
       width: 15px;
     }
-    ^svgIcon {
+    <<svgIcon {
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
     }
-    ^svgIcon svg {
+    <<svgIcon svg {
       aspect-ratio: 1;
       width: 1.15em;
       fill: $textTertiary;
@@ -98,8 +98,8 @@ foam.CLASS({
   ],
 
   constants: [
-    { name: 'BELL_IMAGE', value: 'images/bell.png' },
-    { name: 'MENU_ID',    value: 'notifications' },
+    { name: 'BELL_IMAGE',    value: 'images/bell.png' },
+    { name: 'MENU_ID',       value: 'notifications' },
     { name: 'INITIAL_DELAY', value: 10000 }
   ],
 
@@ -114,6 +114,7 @@ foam.CLASS({
       this.onDetach(this.subject.user$.dot('id').sub(this.onDAOUpdate));
 
       var self = this;
+      // TODO: start with INITIAL_DELAY but grow with lack of activity (not needed, handled in CachingDAO)
       this.setTimeout(function() {
         self.onDAOUpdate();
       }, this.INITIAL_DELAY);

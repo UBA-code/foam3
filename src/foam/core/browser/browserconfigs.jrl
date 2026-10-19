@@ -16,6 +16,7 @@ p({
     "--disable-gpu",
     "--disable-web-security",
     "--headless",
+    "--enable-logging=stderr",
     "--remote-debugging-port=9222",
     "--run-all-compositor-stages-before-draw",
     "--no-sandbox"
@@ -52,7 +53,8 @@ p({
     "--new-instance",
     "--remote-debugging-port=9222",
     "--run-all-compositor-stages-before-draw",
-    "--no-sandbox"
+    "--no-sandbox",
+    "--ignore-certificate-errors"
   ],
   headedFlags: [
     "--disable-gpu",

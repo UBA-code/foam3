@@ -10,8 +10,17 @@ foam.CLASS({
   extends: 'foam.u2.view.date.AbstractDateView',
 
   documentation: `
-  This is a simple date time picker for browsers that do not have their own implementation.
-  The date picker will automatically be used if it a browser does not support date, see Element.js`,
+  A hand-rolled date/time picker for browsers with no native <input type="date">.
+
+  DEAD CODE as of 2026. DateView and DateTimeView select it only when a test
+  input reports type 'text' instead of 'date'; every current browser supports
+  the native type, Safari since 14.1 (2021), so this widget no longer renders
+  anywhere. It has rotted accordingly - the popup dismisses itself as soon as
+  it opens, undiagnosed.
+
+  TODO: decide whether to delete this class along with the feature-detect
+  branches in DateView.js and DateTimeView.js, or restore it to working order.
+  Do not assume it works; nothing exercises it.`,
 
   requires: [
     'foam.u2.view.date.CalendarDatePicker',
@@ -19,8 +28,18 @@ foam.CLASS({
     'foam.u2.view.ChoiceView'
   ],
 
+  constants: {
+    // The trailing adornment doubles as the clear affordance: it becomes an X
+    // once a date is set and the picker is open. Named so the icon expression,
+    // the CSS toggle and clearDate cannot drift apart - clearDate previously
+    // compared against a copy of this path that was missing its leading slash,
+    // so it never cleared.
+    CALENDAR_ICON: '/images/calendar.svg',
+    CANCEL_ICON:   '/images/cancel-round.svg'
+  },
+
   css: `
-    ^next_btn, ^prev_btn {
+    <<next_btn, <<prev_btn {
       display: inline-block;
       width: 31px;
       height: 31px;
@@ -36,18 +55,18 @@ foam.CLASS({
       user-select: none;
     }
 
-    ^ .date-time-picker {
+    << .date-time-picker {
       display: inline-block;
       width: 333px;
       min-height: 304px;
       text-align: center;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderLight;
       border-radius: 5px;
       background-color: $backgroundDefault;
       padding-bottom: 25px;
       margin-top: 16px;
-      z-index: 100002;
+      z-index: $z-popup;
       position: absolute;
     }
 
@@ -56,12 +75,12 @@ foam.CLASS({
       justify-content: center;
     }
 
-    ^ .colon {
-      padding': '0 4px';
-      font-weight': 'bold;
+    << .colon {
+      padding: 0 4px;
+      font-weight: $font-semi-bold;
     }
 
-    ^ .year {
+    << .year {
       border-radius: 5px 5px 0px 0px;
       background-color: $backgroundBrand;
       color: $textOnBrand;
@@ -72,37 +91,37 @@ foam.CLASS({
       text-align: center;
     }
 
-    ^ .year .property-year {
+    << .year .property-year {
       padding-top:4px;
     }
 
-    ^ .year .property-year .foam-u2-IntView {
+    << .year .property-year .foam-u2-IntView {
       width: 70px;
       text-align: center;
     }
 
-    ^ .year-number {
+    << .year-number {
       background: $backgroundBrand;
       border: none;
       color: $textOnBrand;
       display: inline-block;
     }
 
-    ^ .arrow-left {
+    << .arrow-left {
       float: left;
       padding: 10px;
       margin-top: 10px;
       margin-left: 23px;
     }
 
-    ^ .arrow-right {
+    << .arrow-right {
       float: right;
       padding: 10px;
       margin-top: 10px;
       margin-right: 23px;
     }
 
-    ^ .month {
+    << .month {
       display: inline-block;
       display: block;
       align-items: center;
@@ -111,23 +130,23 @@ foam.CLASS({
       text-align: center;
     }
 
-    ^ .month-name {
+    << .month-name {
       padding-top: 3px;
       padding-bottom: 3px;
       display: inline-block;
       font-weight: $font-regular;
     }
 
-    ^ .arrow-container {
+    << .arrow-container {
       display: inline-block;
       width: 24px;
       height: 24px;
-      background-image: linear-gradient(#ffffff, #e7eaec);
+      background-image: linear-gradient($backgroundDefault, $backgroundTertiary);
       text-align: center;
-      border: 1px solid #cbcfd4;
+      border: 1px solid $borderDefault;
     }
 
-    ^ .arrow-container-left{
+    << .arrow-container-left{
       margin-left: 25px;
       float: left;
     }
@@ -136,34 +155,35 @@ foam.CLASS({
       cursor: pointer;
     }
 
-    ^ .arrow-container-right{
+    << .arrow-container-right{
       margin-right: 25px;
       float:right;
     }
 
-    ^ .arrow-black {
+    << .arrow-black {
       padding-top: 6px;
     }
 
-    ^ .calendar {
+    << .calendar {
       display: inline-block;
       text-align: center;
     }
 
-    ^ .time-of-day {
+    << .time-of-day {
       display: inline-block;
     }
 
-    ^overlay {
+    <<overlay {
       position: fixed;
       top: 0;
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 10000;
+      /* click-away scrim: over the page, under the picker and its clear icon */
+      z-index: $z-nav;
     }
 
-    ^ .date-display-box {
+    << .date-display-box {
       height: 36px;
       width: 100%;
       background-color: $backgroundDefault;
@@ -171,17 +191,17 @@ foam.CLASS({
       border-radius: 3px;
     }
 
-    ^ .date-display-box:hover {
+    << .date-display-box:hover {
       border-color: $borderStrong;
     }
 
-    ^ .focus-border {
+    << .focus-border {
       border-radius: 1px;
       border: solid 1px $blue200;
       box-shadow: inset 0 2px 1px 0 $blue400;
     }
 
-    ^ .date-display-text {
+    << .date-display-text {
       display: inline-block;
       margin-top: 9px;
       margin-left: 8px;
@@ -189,7 +209,7 @@ foam.CLASS({
       height: 18px;
     }
 
-    ^ .date-display-image {
+    << .date-display-image {
       float: right;
       display: inline-block;
       margin-top: 10px;
@@ -197,11 +217,11 @@ foam.CLASS({
       position: relative;
     }
 
-    ^ .date-display-image-cancel {
-      z-index: 10001;
+    << .date-display-image-cancel {
+      z-index: $z-popup;
     }
 
-    ^ {
+    << {
       position: relative;
     }
   `,
@@ -253,7 +273,7 @@ foam.CLASS({
       class: 'String',
       name: 'icon',
       expression: function(isOpen_) {
-        return this.data && isOpen_ ? '/images/cancel-round.svg' : '/images/calendar.svg';
+        return this.data && isOpen_ ? this.CANCEL_ICON : this.CALENDAR_ICON;
       }
     }
   ],
@@ -287,7 +307,7 @@ foam.CLASS({
               .end()
               .start()
                 .addClass('date-display-image').enableClass('date-display-image-cancel', self.slot(function(icon) {
-                  return icon === '/images/cancel-round.svg';
+                  return icon === self.CANCEL_ICON;
                 }))
                 .start('img')
                   .attrs({ src: self.icon$ })
@@ -413,7 +433,7 @@ foam.CLASS({
     },
 
     function clearDate(event) {
-      if ( this.icon === 'images/cancel-round.svg' ) {
+      if ( this.icon === this.CANCEL_ICON ) {
         event.stopPropagation();
         this.data    = null;
         this.isOpen_ = false;

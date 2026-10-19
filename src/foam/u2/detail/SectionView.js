@@ -28,7 +28,7 @@ foam.CLASS({
 
   css: `
 
-    ^rows {
+    <<rows {
       gap: 10px;
     }
 
@@ -36,13 +36,13 @@ foam.CLASS({
       color: $textTertiary;
     }
 
-    ^actionDiv {
+    <<actionDiv {
       justify-content: end;
     }
-    ^grid.foam-u2-layout-Grid {
+    <<grid.foam-u2-layout-Grid {
       grid-gap: 16px 12px;
     }
-    ^collapsable-title {
+    <<collapsable-title {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -62,6 +62,15 @@ foam.CLASS({
         if ( ! data ) return null;
         var of = data.cls_;
         var a = of.getAxiomByName(sectionName);
+        if ( ! a ) {
+          console.error('SectionView: no section named "' + sectionName +
+            '" on ' + of.id + '; the section will render empty.');
+        } else if ( ! foam.layout.SectionAxiom.isInstance(a) ) {
+          console.error('SectionView: "' + sectionName + '" on ' + of.id +
+            ' is a ' + a.cls_.name + ', not a section — a property or other ' +
+            'axiom is shadowing the section name. The section will build ' +
+            'from the wrong axiom.');
+        }
         return this.Section.create().fromSectionAxiom(a, of);
       },
       adapt: function(o, n) {

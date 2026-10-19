@@ -42,19 +42,19 @@ foam.CLASS({
   ],
 
   css: `
-    ^createWrapper {
+    <<createWrapper {
       padding: 8px 16px;
       background: $backgroundSecondary;
       display: flex;
       gap: 8px;
       flex-direction: column;
     }
-    ^actionBar {
+    <<actionBar {
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    ^actionBar > .foam-u2-ActionView + .foam-u2-ActionView {
+    <<actionBar > .foam-u2-ActionView + .foam-u2-ActionView {
       margin-left: 0px;
     }
   `,
@@ -98,8 +98,15 @@ foam.CLASS({
           code: function() {
             if ( this.dao.targetProperty ) {
               // Relationship
+              var targetDAO = this.__subContext__[this.dao.targetDAOKey];
+              if ( ! targetDAO ) {
+                console.error('DAOListWithCreateView: targetDAOKey "' +
+                  this.dao.targetDAOKey + '" is not in the context; cannot ' +
+                  'remove the relationship entry.');
+                return;
+              }
               this.value[this.dao.targetProperty.name] = null;
-              this.__subContext__[this.dao.targetDAOKey].put(this.value);
+              targetDAO.put(this.value);
             } else {
               // DAO
               this.dao.remove(this.value);

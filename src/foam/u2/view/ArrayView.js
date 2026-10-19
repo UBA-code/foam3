@@ -127,11 +127,11 @@ foam.CLASS({
         'foam.u2.layout.Cols'
       ],
       css: `
-        ^value-view {
+        <<value-view {
           flex: 1;
           max-width: 100%;
         }
-        ^value-view-container {
+        <<value-view-container {
           gap:4px;
         }
       `,
@@ -229,14 +229,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       align-items: stretch;
       justify-content: center;
       gap: 4px;
     }
-    ^addButton.foam-u2-ActionView {
+    <<addButton.foam-u2-ActionView {
       border: 1.5px dashed $borderDefault;
       justify-content: flex-start;
       text-align: left;
@@ -280,7 +280,11 @@ foam.CLASS({
     function buildRow(e, i, self) {
       var row = self.Row.create({ index: i, value: e });
       e && e.sub && e.sub(self.updateDataWithoutFeedback);
-      row.onDetach(row.sub(self.updateDataWithoutFeedback));
+      row.onDetach(row.sub(
+        'propertyChange',
+        'value',
+        self.updateDataWithoutFeedback
+      ));
       return row;
     },
     function addAction() {

@@ -686,7 +686,6 @@ p({class:"foam.i18n.Locale",locale:"pt",source:"foam.u2.PropertyModal.OPTIONAL",
 
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.comics.v2.DAOBrowseControllerView.CREATE.label",target:"Crio"})
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.comics.v2.DAOBrowseControllerView.VIEW_ALL",target:"Ver tudo "})
-p({class:"foam.i18n.Locale",locale:"pt",source:"foam.comics.v2.DAOBrowseControllerView.ACTIONS",target:"Ações"})
 
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.auth.User.SECTION_USER_INFORMATION.title",target:"Usuário Informação"})
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.auth.User.SECTION_BUSINESS_INFORMATION.title",target:"Negócios Informação"})
@@ -1061,3 +1060,6 @@ p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.approval.ApprovalReque
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.dashboard.view.DashboardView.TITLE",target:"Painel"})
 
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.net.web.HTTPRequest.GENERAL_ERROR",target:"Erro de rede, verifique sua conexão e tente novamente."})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.units.days",target:"dias"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.units.years",target:"anos"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.units.seconds",target:"segundos"})

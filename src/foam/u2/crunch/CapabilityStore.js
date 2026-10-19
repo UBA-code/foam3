@@ -12,6 +12,7 @@ foam.CLASS({
   implements: [
     'foam.mlang.Expressions'
   ],
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.dao.ArrayDAO',
@@ -58,45 +59,45 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       margin: auto;
       padding: 12px 24px 24px 24px;
       -webkit-box-sizing: border-box;
       box-sizing: border-box;
     }
 
-    ^label-title {
+    <<label-title {
       margin: 24px 16px;
       margin-bottom: 8px;
     }
 
-    ^label-subtitle {
+    <<label-subtitle {
       margin: 16px;
       margin-top: 0;
       color: $textTertiary;
     }
 
-    ^category {
+    <<category {
       margin-top: 48px;
       padding: 0px 12px;
     }
 
-    ^feature-column-grid {
+    <<feature-column-grid {
       display: inline-flex;
       width: calc(100% - 48px);
       overflow-x: auto;
     }
 
-    ^featureSection {
+    <<featureSection {
       flex: 0;
       height: auto;
     }
 
-    ^perFeature {
+    <<perFeature {
       display: flex;
     }
 
-    ^left-arrow {
+    <<left-arrow {
       width: 24px;
       height: 24px;
       float: left;
@@ -106,7 +107,7 @@ foam.CLASS({
       -webkit-transition: padding 2s;
     }
 
-    ^right-arrow {
+    <<right-arrow {
       width: 24px;
       height: 24px;
       float: right;
@@ -114,12 +115,12 @@ foam.CLASS({
       cursor: pointer;
       padding-top: 70px;
       margin-left: -20px;
-      z-index: 10000;
+      z-index: $z-10;
       position: relative;
       -webkit-transition: padding 2s;
     }
 
-    ^container {
+    <<container {
       display: inline-block;
       width: 100%;
       height: fit-content;
@@ -129,6 +130,13 @@ foam.CLASS({
   `,
 
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       name: 'visibleCapabilityDAO',
       class: 'foam.dao.DAOProperty',
@@ -196,6 +204,9 @@ foam.CLASS({
 
   methods: [
     function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
       this.crunchService.getAllJunctionsForUser().then(juncs => {
         this.junctions = juncs;
         this.daoUpdate();

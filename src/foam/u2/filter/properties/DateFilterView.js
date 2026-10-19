@@ -20,44 +20,57 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'LABEL_ALL',       message: 'All Time' },
-    { name: 'LABEL_EQUAL',     message: 'Equal' },
-    { name: 'LABEL_AFTER',     message: 'After' },
-    { name: 'LABEL_BEFORE',    message: 'Before' },
-    { name: 'LABEL_BETWEEN',   message: 'Between' },
-    { name: 'LABEL_INCLUSIVE',  message: 'Inclusive' }
+    { name: 'LABEL_ALL',                message: 'All Time'       },
+    { name: 'LABEL_EQUAL',              message: 'Equal'          },
+    { name: 'LABEL_AFTER',              message: 'After'          },
+    { name: 'LABEL_BEFORE',             message: 'Before'         },
+    { name: 'LABEL_BETWEEN',            message: 'Between'        },
+    { name: 'LABEL_INCLUSIVE',          message: 'Inclusive'      },
+    { name: 'LABEL_LAST_7_DAYS',        message: 'Last 7 days'    },
+    { name: 'LABEL_LAST_30_DAYS',       message: 'Last 30 days'   },
+    { name: 'LABEL_LAST_3_MONTHS',      message: 'Last 3 months'  },
+    { name: 'LABEL_LAST_6_MONTHS',      message: 'Last 6 months'  },
+    { name: 'LABEL_LAST_12_MONTHS',     message: 'Last 12 months' }
   ],
 
   css: `
-    ^ {
+    << {
       padding: 24px 16px;
       box-sizing: border-box;
       min-width: 214px;
     }
 
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       width: 100%;
 
       border-radius: 3px;
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderDefault;
       background-color: $backgroundDefault;
     }
 
-    ^ .foam-u2-DateView {
+    << .foam-u2-DateView {
       width: 100%;
       height: 36px;
 
       margin-top: 16px;
 
       border-radius: 3px;
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderDefault;
       background-color: $backgroundDefault;
     }
 
-    ^ .foam-u2-PropertyBorder-inclusive {
+    << .foam-u2-PropertyBorder-inclusive {
       margin-top: 16px;
     }
   `,
+
+  constants: [
+    {
+      class: 'Long',
+      name: 'MILLIS_PER_DAY',
+      value: 1000 * 60 * 60 * 24
+    }
+  ],
 
   properties: [
     {
@@ -92,9 +105,9 @@ foam.CLASS({
       class: 'Boolean',
       name: 'inclusive',
       documentation: `
-        Controls whether the start date is included in the 'Between' filter.
-        When false (default): excludes start day, includes end day (> start, < end+1).
-        When true: includes both start and end days (>= start, < end+1).
+        Controls whether an event exactly at date1 is included in the 'Between' filter.
+        When false (default): > date1 and <= date2.
+        When true: >= date1 and <= date2.
       `,
       value: false
     },
@@ -107,7 +120,24 @@ foam.CLASS({
         other Search Views.
       `,
       expression: function(qualifier, date1, date2, inclusive) {
-        if ( ! qualifier || ! date1 || isNaN(date1.valueOf()) ) return this.TRUE;
+        if ( ! qualifier || qualifier === 'True' ) return this.TRUE;
+
+        if ( qualifier.startsWith('Ls') ) { // If qualifier is a "Last N days/months"
+          var amt = Number(qualifier.slice(2, -1)); // Get N
+          var today = new Date();
+          var lastDate = new Date(today);
+
+          if ( amt == 7 || amt == 30 ) { // Figure out if it's days or months
+            lastDate.setDate(lastDate.getDate() - amt);
+          } else {
+            lastDate.setMonth(lastDate.getMonth() - amt);
+          }
+
+          // Results should be >= lastDate but <= today
+          return this.AND(this.GTE(this.property, lastDate), this.LT(this.property, today));
+        }
+
+        if ( ! date1 || isNaN(date1.valueOf()) ) return this.TRUE;
 
         if ( qualifier !== 'Bt' ) {
           return foam.mlang.predicate[qualifier].create({
@@ -118,17 +148,10 @@ foam.CLASS({
 
         if ( ! date2 || isNaN(date2.valueOf()) ) return this.TRUE;
 
-        // Add +1 day to date2 to include the full end day (original behavior)
-        var endDate = new Date(date2);
-        endDate.setDate(endDate.getDate() + 1);
-
         if ( inclusive ) {
-          // Includes both start and end days
-          return this.AND(this.GTE(this.property, date1), this.LT(this.property, endDate));
+          return this.AND(this.GTE(this.property, date1), this.LTE(this.property, date2));
         }
-
-        // Original behavior: excludes start day, includes end day
-        return this.AND(this.GT(this.property, date1), this.LT(this.property, endDate));
+        return this.AND(this.GT(this.property, date1), this.LTE(this.property, date2));
       }
     },
     {
@@ -147,18 +170,23 @@ foam.CLASS({
         .start(this.ChoiceView, {
               data$: this.qualifier$,
               choices: [
-                ['True', this.LABEL_ALL],
-                ['Eq',   this.LABEL_EQUAL],
-                ['Gt',   this.LABEL_AFTER],
-                ['Lt',   this.LABEL_BEFORE],
-                ['Bt',   this.LABEL_BETWEEN]
+                ['True',  this.LABEL_ALL],
+                ['Eq',    this.LABEL_EQUAL],
+                ['Gt',    this.LABEL_AFTER],
+                ['Lt',    this.LABEL_BEFORE],
+                ['Bt',    this.LABEL_BETWEEN],
+                ['Ls7d',  this.LABEL_LAST_7_DAYS],
+                ['Ls30d', this.LABEL_LAST_30_DAYS],
+                ['Ls3m',  this.LABEL_LAST_3_MONTHS],
+                ['Ls6m',  this.LABEL_LAST_6_MONTHS],
+                ['Ls12m', this.LABEL_LAST_12_MONTHS]
               ],
               defaultValue: 'True'
             })
           .start('div').addClass(this.myClass('carrot')).end()
         .end()
         .add(this.onDetach(this.slot(function(qualifier) {
-          if ( ! qualifier || qualifier === 'True' ) return this.E();
+          if ( ! qualifier || qualifier === 'True' || qualifier.startsWith('Ls') ) return this.E();
           return qualifier === 'Bt' ?
             this.E()
               .add(self.DATE1)
@@ -186,15 +214,26 @@ foam.CLASS({
       var qualifier = predicate.cls_.name;
 
       if ( qualifier == 'And' ) {
+        // Check for a "Last N days/months" predicate
+        if ( predicate.args[1].cls_.name === 'Lt' ) {
+          var start = predicate.args[0].arg2.value;
+          var end   = predicate.args[1].arg2.value;
+          var days  = Math.round((end - start) / this.MILLIS_PER_DAY);
+
+          // nearest matching option
+          if      ( days <= 15 )  this.qualifier = 'Ls7d';
+          else if ( days <= 60 )  this.qualifier = 'Ls30d';
+          else if ( days <= 135 ) this.qualifier = 'Ls3m';
+          else if ( days <= 270 ) this.qualifier = 'Ls6m';
+          else                    this.qualifier = 'Ls12m';
+          return;
+        }
+
         // Check if it's inclusive (Gte) or exclusive (Gt) based on first predicate
         this.inclusive = predicate.args[0].cls_.name === 'Gte';
         this.qualifier = 'Bt';
         this.date1 = predicate.args[0].arg2.value;
-
-        // Subtract 1 day from date2 since predicate stores date2+1
-        var storedDate2 = new Date(predicate.args[1].arg2.value);
-        storedDate2.setDate(storedDate2.getDate() - 1);
-        this.date2 = storedDate2;
+        this.date2 = predicate.args[1].arg2.value;
       } else {
         this.qualifier = qualifier;
         this.date1 = predicate.arg2.value;

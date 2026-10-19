@@ -473,6 +473,14 @@ foam.CLASS({
         self.setPrivate_('__subContext__', { name: 'ApplicationControllerProxy', __proto__: client.__subContext__});
         self.subject = self.client.initSubject;
         self.initSubject = true;
+
+        // Source runs only: pick up .js edits without a page reload. The
+        // class is built under dev&web, so a foam-bin build has no such
+        // class and maybeLookup, not requires:, is the right question.
+        var ViewReloader = foam.maybeLookup('foam.u2.ViewReloader');
+        if ( ViewReloader && client.sourceChangeDAO ) {
+          self.onDetach(ViewReloader.create({ root: self }, self.__subContext__));
+        }
         // For testing purposes only. Do not use in code.
         globalThis.x     = self.__subContext__;
         globalThis.MLang = foam.mlang.Expressions.create();
@@ -646,7 +654,14 @@ foam.CLASS({
 
         promptLogin = promptLogin && await this.client.auth.check(this, 'auth.promptlogin');
         var authResult =  await this.client.auth.check(this, '*');
-        if ( ! result || ! result.user || promptLogin && ! authResult ) throw new Error();
+
+        // Require authentication and jump to 'catch' block below when
+        // - there is no current subject or user or
+        // - the current user is trapped in 'auth.promptLogin' permission (i.e., anonymous user)
+        if ( ! result || ! result.user || (promptLogin && ! authResult) ) {
+          throw new Error('Authentication required');
+        }
+
         this.fetchGroup();
       } catch (err) {
         if ( ! promptLogin || authResult ) return;
@@ -761,12 +776,26 @@ foam.CLASS({
 
     async function findDefaultMenu(dao) {
       var menu;
-      var menuArray = this.theme?.defaultMenu.concat(this.theme?.unauthenticatedDefaultMenu);
-      if ( ! menuArray || ! menuArray.length ) return null;
-      for ( menuId in menuArray ) {
-        menu = await dao.find(menuArray[menuId]);
+      // Pick menus appropriate to the current auth state: unauthenticatedDefaultMenu
+      // is the pre-login landing menu, defaultMenu is the post-login one. Previously
+      // both were always concatenated (defaultMenu first), so a logged-out user would
+      // attempt the authenticated menu and be denied before ever reaching the
+      // unauthenticated one. unauthenticatedDefaultMenu is a single Reference, so wrap
+      // it in an array; filter(Boolean) drops an unset ('') reference.
+      var menuArray = this.loginSuccess
+        ? ( this.theme?.defaultMenu || [] ).concat(this.theme?.unauthenticatedDefaultMenu || [])
+        : [ this.theme?.unauthenticatedDefaultMenu ];
+      menuArray = menuArray.filter(Boolean);
+      if ( ! menuArray.length ) return null;
+      for ( var menuId of menuArray ) {
+        try {
+          menu = await dao.find(menuId);
+        } catch (e) {
+          // Not authorized to read this menu in the current auth state; try the next.
+          menu = null;
+        }
         if ( menu ) break;
-      };
+      }
       return menu;
     },
 
@@ -775,13 +804,18 @@ foam.CLASS({
       // arg(dao) passed in cause context handled in calling function
       var maybeMenu = await this.findDefaultMenu(dao);
       if ( maybeMenu ) return maybeMenu;
+      // Falling back to "the first menu that exists" only makes sense once the
+      // user is authenticated. An unauthenticated user has no readable menus
+      // here, so return null and let the caller route them to login instead of
+      // selecting an arbitrary (or empty) menu and rendering a blank screen.
+      if ( ! this.loginSuccess ) return null;
       return await dao.orderBy(foam.core.menu.Menu.ORDER).limit(1)
         .select().then(a => a.array.length && a.array[0])
         .catch(e => console.error(e.message || e));
     },
 
     async function pushDefaultMenu() {
-      var defaultMenu = await this.findDefaultMenu(this.client.menuDAO);
+      var defaultMenu = await this.findFirstMenuIHavePermissionFor(this.client.menuDAO);
       defaultMenu = defaultMenu != null ? defaultMenu : '';
       if ( defaultMenu ) {
         if ( defaultMenu.authorizationStatus === this.AuthorizationStatus.AUTHENTICATED ) {
@@ -791,6 +825,12 @@ foam.CLASS({
           ret && (this.memento_.str = '');
         }
         return defaultMenu;
+      }
+      // No landing menu resolved. If the user isn't authenticated, send them to
+      // the login screen rather than leaving a blank page. Once authenticated,
+      // fall through to the normal subject check.
+      if ( ! this.loginSuccess ) {
+        return await this.requestLogin();
       }
       await this.fetchSubject();
     },
@@ -811,7 +851,8 @@ foam.CLASS({
       if ( location.hash && location.hash === '#reset' ) {
         view = {
           class: 'foam.core.auth.ChangePasswordView',
-          modelOf: 'foam.core.auth.resetPassword.ResetPasswordByToken'
+          modelOf: 'foam.core.auth.resetPassword.ResetPasswordByToken',
+          viewMode: 'STANDALONE'
         };
       }
 

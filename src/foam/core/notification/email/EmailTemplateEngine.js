@@ -70,10 +70,17 @@ foam.CLASS({
           Object[] vals = ((Object[])val);
           String v = compactToString(vals[0]);
           if ( vals.length > 1 && vals[1] == null ) {
-            String value = (String) ((Map) x.get("values")).get(v);
-            if ( value == null ) {
-              value = "";
+            String value = "";
+            Object o = ((Map) x.get("values")).get(v);
+            if ( o == null ) {
               foam.core.logger.StdoutLogger.instance().warning("No value provided for variable",v);
+            } else {
+              // Support number, date, string, FObject rather than fail
+              // parsing. Previously only supported String.
+              if ( o instanceof FObject )
+                value = ((FObject) o).toSummary();
+              else
+                value = o.toString();
             }
             ((StringBuilder) x.get("sb")).append(value);
             return value;
@@ -385,6 +392,7 @@ foam.CLASS({
       parserX.set("values", values);
       parserX.set("logger", x.get("logger"));
       parserX.set("alarmDAO", x.get("alarmDAO"));
+      parserX.set("x", x);
       getGrammar().parse(ps, parserX, "");
       return sb;
       `
@@ -453,26 +461,30 @@ foam.CLASS({
       args: 'Context x, String text',
       type: 'String',
       javaCode: `
-      String[] tokens = text.split("$");
+      // Claude's fix
       Theme theme = (Theme) ((Themes) x.get("themes")).findTheme(x);
       DAO overrideDAO = (DAO) x.get("cssTokenOverrideDAO");
-      CSSTokenOverride override = new CSSTokenOverride();
-      override.setTheme(theme.getId());
-      for ( int i = 0; i < tokens.length; i++ ) {
-        String token = tokens[i].trim();
-        override.setSource(token);
+      String name = text.trim();
+
+      for ( int depth = 0 ; depth < 8 ; depth++ ) {
+        String value;
+
+        CSSTokenOverride override = new CSSTokenOverride();
+        override.setTheme(theme.getId());
+        override.setSource(name);
         CSSTokenOverride replacement = (CSSTokenOverride) overrideDAO.find(override);
         if ( replacement != null ) {
-          tokens[i] = replacement.getTarget();
-        }
-        CSSToken cssToken = CSSTokens.get(x, tokens[i]);
-        if ( cssToken != null ) {
-          tokens[i] = String.valueOf(cssToken.getValue());
+          value = replacement.getTarget();
         } else {
-          tokens[i] = "/* Token not found */";
+          CSSToken cssToken = CSSTokens.get(x, name);
+          if ( cssToken == null ) return "/* Token not found: " + name + " */";
+          value = String.valueOf(cssToken.getValue());
         }
+
+        if ( ! value.startsWith("$") ) return value;
+        name = value.substring(1);
       }
-      return String.join(" ", tokens);
+      return "/* Token cycle: " + text.trim() + " */";
       `
     }
   ],

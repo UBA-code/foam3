@@ -9,6 +9,7 @@ package foam.core.ai.mcp;
 import foam.lang.*;
 import foam.core.*;
 import foam.dao.*;
+import foam.lib.*;
 import foam.lib.json.Outputter;
 import foam.lib.json.JSONParser;
 import foam.lib.formatter.JSONFObjectFormatter;
@@ -48,6 +49,7 @@ import static foam.mlang.MLang.*;
  *   https://www.simple-is-better.org/json-rpc/
  *   https://www.jsonrpc.org/
  *   https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.json
+ *   https://modelcontextprotocol.io/specification/2026-07-28/changelog
  */
 public class MCPWebAgent
   implements WebAgent
@@ -95,7 +97,11 @@ public class MCPWebAgent
           "orderBy", Map.of("type", "object", "description",
             "Optional sort order. Single field ascending: {\"class\":\"__Property__\",\"forClass_\":\"...\",\"name\":\"field\"}. "
             + "Descending: {\"class\":\"foam.mlang.order.Desc\",\"arg1\":{...}}. "
-            + "Multiple fields: {\"class\":\"foam.mlang.order.ThenBy\",\"head\":{...},\"tail\":{...}}.")),
+            + "Multiple fields: {\"class\":\"foam.mlang.order.ThenBy\",\"head\":{...},\"tail\":{...}}."),
+          "predicate", Map.of("type", "object", "description",
+            "Optional FOAM MLang Predicate as JSON, used directly without query parsing. "
+            + "Example: {\"class\":\"foam.mlang.predicate.ContainsIC\",\"arg1\":{\"class\":\"__Property__\",\"forClass_\":\"...\",\"name\":\"name\"},\"arg2\":{\"class\":\"foam.mlang.Constant\",\"value\":\"abc\"}}. "
+            + "ANDs with 'query' when both are given.")),
         "required", List.of("dao"))),
 
     tool("dao_find", "",
@@ -293,6 +299,16 @@ public class MCPWebAgent
       dao = dao.where(predicate);
     }
 
+    // Serialized MLang predicate, used directly — no query-language parsing.
+    Object predicateSpec = args.get("predicate");
+    if ( predicateSpec != null ) {
+      FObject po = jsonToFObject(x, asMap(predicateSpec));
+      if ( ! ( po instanceof Predicate ) ) {
+        throw new MCPError(-32602, "predicate must be a foam.mlang.predicate.Predicate");
+      }
+      dao = dao.where((Predicate) po);
+    }
+
     // OrderBy
     Object orderBySpec = args.get("orderBy");
     if ( orderBySpec != null ) {
@@ -470,6 +486,12 @@ public class MCPWebAgent
     fmt.setX(x);
     fmt.setOutputDefaultValues(true);
     fmt.setQuoteKeys(true);
+    // Must be set before output(): the predicate is applied while properties are being written
+    fmt.setPropertyPredicate(
+      new AndPropertyPredicate(new PropertyPredicate[] {
+          new NetworkPropertyPredicate(),
+          new PermissionedPropertyPredicate()
+        }));
     fmt.output(obj, null);
     return fmt.builder().toString();
   }

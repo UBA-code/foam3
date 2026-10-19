@@ -54,7 +54,7 @@ foam.CLASS({
       class: 'String',
       name: 'query',
       onKey: true,
-      view: 'foam.u2.SearchField',
+      view: 'foam.u2.ClearableSearchField',
       documentation: 'The current search query string.'
     },
     {
@@ -142,13 +142,13 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       display: block;
     }
-    ^heading {
+    <<heading {
       /* Inherit default heading styles */
     }
-    ^content {
+    <<content {
       /* Section content wrapper */
     }
   `,
@@ -299,7 +299,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       display: inline-block;
     }
   `,
@@ -346,7 +346,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       font-size: 14px;
       color: $textSecondary;
       margin: 8px 0;
