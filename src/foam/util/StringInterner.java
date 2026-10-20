@@ -59,8 +59,10 @@ public final class StringInterner {
    * Null passes through. After release() every call returns s.
    */
   public String intern(String s) {
+    // release() can run between the two reads, leaving once live and many
+    // null, so both need the check
     ConcurrentHashMap<String, String> once = seenOnce_, many = seenMany_;
-    if ( s == null || once == null ) return s;
+    if ( s == null || once == null || many == null ) return s;
     int b = bucket(s.length());
 
     String c = many.get(s);
