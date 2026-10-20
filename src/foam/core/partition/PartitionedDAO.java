@@ -28,7 +28,7 @@ public class PartitionedDAO
   extends AbstractPartitionedDAO // generated from AbstractPartitionDAO.js
 {
 
-  protected final static String NO_PART = "".intern();
+  protected final static String NO_PART = "";
 
   /** Every partition owns a directory, and its journal lives inside under this
       fixed name. That keeps two namespaces apart structurally rather than by
