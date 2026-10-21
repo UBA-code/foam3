@@ -153,14 +153,11 @@
 
 # Intro
 
-This tutorial will guide you through creating of a new project using FOAM. FOAM stands for "Feature-Oriented Active Modeller", and it is a framework converting high-level software specifications, called "models", into useful executable software components, called "features". FOAM is cross-language and cross-platform, meaning that it can be used as JS, Java and Swift, and for both client and server software.
+This tutorial will guide you through the creation of a new project using FOAM. FOAM stands for "Feature-Oriented Active Modeller", and it is a framework converting high-level software specifications, called "models", into useful executable software components, called "features". FOAM is cross-language and cross-platform, meaning that it can be used as JS, Java and Swift, and for both client and server software.
 
-The tutorial will cover the initial setup and an application creation by creating a cooking recipe database. The tutorial assumes that you 
-already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> installed in your environment. If you need to install these, helpful tips can be found in the [FOAM installation instructions][foam-install]. This tutorial also assumes that if you are using a Windows device, you are using WSL.
+The tutorial will cover the initial setup and the creation of a cooking recipe database application.
 
-> 💡 **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
-
-By following this tutorial you will be able to:
+By the end of this tutorial you will be able to:
 1. Scaffold a working full-stack web application in minutes
 1. Describe your data once and get storage, validation, and UI for free
 1. Query, filter, and persist data without writing database boilerplate
@@ -171,12 +168,15 @@ By following this tutorial you will be able to:
 
 This tutorial is best suited for FOAM beginners as well as experienced FOAM developers who wish to understand the underlying architecture in more depth.
 
-> 📦 **Companion repository.** The fully built application from this tutorial is available at [github.com/foam-foundation/FOAM-Recipes](https://github.com/foam-foundation/FOAM-Recipes). You can clone it to run the finished app, compare your work, or get unstuck when something does not match. That said, we strongly encourage you to build the project step by step rather than reaching for the finished code first — the understanding you build by working through each concept, making mistakes, and seeing things break and recover is not something you get by reading a completed codebase. The companion repo is a safety net, not a shortcut.
+> 📦 **Companion repository.** The fully built application from this tutorial is available at [github.com/foam-foundation/FOAM-Recipes](https://github.com/foam-foundation/FOAM-Recipes). You can clone it to run the finished app, compare your work, or get unstuck when something does not match. That said, we strongly encourage you to build the project step by step rather than reaching for the finished code first — the understanding you build by working through each concept, making mistakes, and seeing things break and recover is not something you get by reading a completed codebase! The companion repo is a safety net, not a shortcut.
 
 
 # Initial Setup
 
-If you are starting from scratch the best way to start is with an empty github repository you own. You can find more information on how to create a new github repository [here][github-docs-repo]. 
+> 💡 **Important:**
+ The tutorial assumes that you already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> installed in your environment. If you need to install these, helpful tips can be found in the [FOAM installation instructions][foam-install]. Furthermore, if you are following this tutorial on a **Windows** device, you **must** use WSL. FOAM is not currently compatible with the standard Windows operating system.
+
+If you are starting from scratch the best way to begin is with an empty github repository you own. You can find more information on how to create a new github repository [here][github-docs-repo]. 
 After you created a github repo for your project, the first step is to clone it into your development environment:
 
 ```
@@ -260,7 +260,7 @@ This script is your entry point to the FOAM build tools — every build, test, a
 chmod +x build.sh
 ```
 
-The next file to take a look at is the Project Object Model (POM) file for our project, named `pom.js`. The `.js` extension is intentional — rather than a static XML descriptor, this is a live JavaScript file that FOAM evaluates at build time to produce the traditional `pom.xml` that build tools expect. Writing it in JavaScript means you can use variables, functions, and conditions to express build configuration that XML simply cannot. The file should have the following content:
+The next file to take a look at is the Project Object Model (POM) file for our project, named `pom.js`. The `.js` extension is intentional — rather than a static XML descriptor, this is a live JavaScript file that FOAM evaluates at build time to produce the traditional `pom.xml` that build tools expect. In other words, the POM determines which files are included in your build and which are ignored. Writing it in JavaScript means you can use variables, functions, and conditions to express build configuration that XML simply cannot. Currently, the file should have the following content:
 
 ```
 foam.POM({
@@ -327,11 +327,44 @@ in the projects below.</td>
 </table>
 
 
-You can learn more on the pom file and possible customization options by reading the full [FOAM POM specification][foam-pom-spec].
+A typical FOAM project will include a POM file in each directory which ensures that each file in that folder is included in the build. For example, in the above `pom.js` file, lists `src/com/foamdev/cook/pom` as a project, which means that there is another `pom.js` file in the `cook` directory. The `cook/pom.js` file currently looks something like this:
+
+```
+foam.POM({
+  name: 'recipe',
+  files: [
+    { name: 'Recipe',                  flags: 'js|java' }
+    // ...additional files
+  ]
+});
+```
+
+
+This POM introduces the `files` element which is an array of file names and flags. We'll discuss the `files` element in more detail later, but for the time being, think of it as an array of files that you want included in the build.
+
+> 💡 **Important:**
+Files which are not included in a `pom.js` file, or are included in a `pom.js` file that the top-level POM does not include as a `project`, **will not be included in the build**. A common mistake developers make when working with FOAM is to omit newly created files from relevant POM.
+
+`pom.js` files are capable of more than what we have discussed thus far, however, that information is not relevant to you until later in the tutorial.
+
+For now, the top-level `pom.js`...
+- Defines the project's name
+- Determines which sub-directories are excluded from the build
+- Holds the project's license notification(s)
+- Holds the project's version
+- Sets up build hooks
+- And points to other projects' or sub-directories' `pom.js` files
+
+While sub-directory `pom.js` files like `src/com/foamdev/cook/pom.js`...
+- Define the sub-directory or sub-project's name
+- Points to `pom.js` files that are furthur down the hierarchy (sub-sub-directories)
+- And determines which files are included in the build
+
+You can learn more about pom files and possible customization options by reading the full [FOAM POM specification][foam-pom-spec].
 
 ## FOAM Model - Recipe.js
 
-The most interesting file that is generated for us is the model file Recipe.js in the src/com/foamdev/cook directory. The file contains the key entity for our recipe database application. We will adjust the content of this file as we develop our application. However, if you just generated the project, the file will have the following content:
+The most interesting file that is generated for us is the model file Recipe.js in the src/com/foamdev/cook directory. This file contains the key entity for our recipe database application. We will adjust the content of this file as we develop our application. However, if you just generated the project, the file will have the following content:
 
 ```
 foam.CLASS({
@@ -387,8 +420,7 @@ foam.CLASS({
 ```
 
 Here we defined a model for class <code>Recipe</code> that is in the <code>com.foamdev.cook</code> package and has two properties,
-<code>name</code> and <code>description</code>, a few sample methods. The model derives
-from two interfaces, <code>foam.core.auth.CreatedAware</code> and <code>foam.core.auth.LastModifiedAware</code> whose default implementation adds the timestamp and last modified properties.
+<code>name</code> and <code>description</code>, and a few sample methods. The model derives from two interfaces, <code>foam.core.auth.CreatedAware</code> and <code>foam.core.auth.LastModifiedAware</code> whose default implementation adds the timestamp and last modified properties.
 
 ### Understanding FOAM Models
 
