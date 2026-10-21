@@ -447,7 +447,7 @@ public class PartitionedDAO
       predicate carries an AllPartitions naming this level's property,
       otherwise the single one an EQ routes to. */
   public String[] resolvePartitions(Predicate predicate) {
-    if ( hasAllPartitions(predicate) ) return getPartitions();
+    if ( hasAllPartitions(predicate, getPartitionProperty()) ) return getPartitions();
 
     Object part = extractPredicateValue(predicate);
 
@@ -466,17 +466,19 @@ public class PartitionedDAO
     return new String[] { String.valueOf(part) };
   }
 
-  /** True when the predicate asks for every partition of THIS level. Mirrors
-      extractPredicateValue's traversal: a bare term, or any arg of an AND.
-      Comparing arg1 by reference matches how extractPredicateValue matches the
-      partition property. */
-  protected boolean hasAllPartitions(Predicate predicate) {
+  /** True when the predicate asks for every partition of the level
+      partitioned on prop. Mirrors extractPredicateValue's traversal: a bare
+      term, or any arg of an AND. Comparing arg1 by reference matches how
+      extractPredicateValue matches the partition property. Static so that
+      decorators above a PartitionedDAO, such as ProgramAwareDAO, can ask the
+      same question without a PartitionedDAO instance. */
+  public static boolean hasAllPartitions(Predicate predicate, Expr prop) {
     if ( predicate instanceof AllPartitions )
-      return ((AllPartitions) predicate).getArg1() == getPartitionProperty();
+      return ((AllPartitions) predicate).getArg1() == prop;
 
     if ( predicate instanceof And ) {
       for ( Predicate arg : ((And) predicate).getArgs() ) {
-        if ( hasAllPartitions(arg) ) return true;
+        if ( hasAllPartitions(arg, prop) ) return true;
       }
     }
 
