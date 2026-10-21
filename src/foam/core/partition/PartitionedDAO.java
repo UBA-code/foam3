@@ -328,7 +328,6 @@ public class PartitionedDAO
         // because the journal formats the object AFTER the delegate stamps
         // it (AbstractF3FileJournal.put executes dao.put_ under lock first).
         DAO seq = new foam.core.partition.PartitionedSequenceNumberDAO.Builder(loadX)
-          .setPrefix(rawPart + SEPARATOR)
           .setProperty("id")
           .setDelegate(new foam.dao.MDAO(getOf()))
           .build();
@@ -359,7 +358,11 @@ public class PartitionedDAO
 
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
-    String[] a = getID(obj).split(SEPARATOR);
+    // -1 keeps a trailing empty segment: a new record reaches the second
+    // level as "1~", which must split to ["1", ""] (no key yet), not ["1"],
+    // or the outer part "1" is reused as its key and every new record in
+    // the partition gets the same id.
+    String[] a = getID(obj).split(SEPARATOR, -1);
     //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
