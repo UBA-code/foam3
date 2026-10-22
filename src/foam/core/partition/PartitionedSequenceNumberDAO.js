@@ -9,21 +9,9 @@ foam.CLASS({
   name: 'PartitionedSequenceNumberDAO',
   extends: 'foam.dao.SequenceNumberDAO',
 
-  documentation: `Numbers the last segment of a composite <part>~...~<seqNo>
-    id. Only the segment after the last separator is read or written, so the
-    id keeps every partition prefix the levels above stamped on it, however
-    many there are.`,
-
-  javaImports: [
-    'foam.core.partition.AbstractPartitionedDAO'
-  ],
-
-  javaCode: `
-    public PartitionedSequenceNumberDAO(foam.lang.X x, foam.dao.DAO delegate) {
-      setX(x);
-      setDelegate(delegate);
-    }
-  `,
+  documentation: `Numbers String ids of the form <part>~...~<n>. The number is
+    whatever follows the last separator, so the same leaf works at any depth:
+    two levels down it holds ids like 1~5~7 while it only knows its own part.`,
 
   methods: [
     {
@@ -31,12 +19,13 @@ foam.CLASS({
       args: 'Object obj',
       type: 'Long',
       javaCode: `
-        // Called in SequenceNumberDAO.put() to determine the objects' seqno
-        String val  = (String) getProperty_().get(obj);
-        String tail = val.substring(val.lastIndexOf(AbstractPartitionedDAO.SEPARATOR) + 1);
-        if ( tail.isEmpty() ) return 0L;
+        // Called in SequenceNumberDAO.put() to determine the objects' seqno.
+        // A new record arrives with nothing after the last separator ("1~5~").
+        String val = (String) getProperty_().get(obj);
+        String key = val.substring(val.lastIndexOf(AbstractPartitionedDAO.SEPARATOR) + 1);
+        if ( key.isEmpty() ) return 0L;
         try {
-          return Long.parseLong(tail);
+          return Long.parseLong(key);
         } catch ( NumberFormatException e ) {
           // Migrated composite id with a non-numeric legacy suffix
           // (<part>~<oldId>): treat as set-but-not-sequential so put_
@@ -50,7 +39,7 @@ foam.CLASS({
       args: 'Object obj, long val',
       type: 'Void',
       javaCode: `
-        // Called in SequenceNumberDAO.put() to set the objects' seqno
+        // Called in SequenceNumberDAO.put() to set the objects' seqno after its partitions
         String id = (String) getProperty_().get(obj);
         getProperty_().set(obj, id.substring(0, id.lastIndexOf(AbstractPartitionedDAO.SEPARATOR) + 1) + val);
         setValue_(val + 1);

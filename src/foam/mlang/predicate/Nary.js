@@ -50,6 +50,7 @@ foam.CLASS({
               if ( newArg === shortCircuit ) return shortCircuit;
               args[i] = newArg;
               args.splice(j, 1);
+              j--;
             }
           }
         }

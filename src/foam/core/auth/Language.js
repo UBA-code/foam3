@@ -41,8 +41,14 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'variant',
-      value: ''
+      name: 'variant'
+    },
+    {
+      class: 'String',
+      name: '_choiceText_',
+      transient: true,
+      javaGetter: 'return toString();',
+      getter: function() { return this.toString(); }
     }
   ],
 

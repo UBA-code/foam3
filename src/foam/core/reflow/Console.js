@@ -231,6 +231,9 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
+      isAvailable: function(data$value$childLock) {
+        return ! data$value$childLock;
+      },
       confirmationView: function(X, data) {
         return data.ConfirmationModal.create({
           primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
@@ -303,6 +306,7 @@ foam.CLASS({
         this.mementoMgr.clear();
         flow.version  = undefined;
         flow.revision = undefined;
+        flow.childLock = false;
       }
     },
     {
@@ -596,7 +600,7 @@ foam.CLASS({
             show(this.showRight$).
           end().
         end();
-    }
+    },
   ],
 
   listeners: [
@@ -723,7 +727,6 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: true,
-      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
     },
     {
@@ -821,7 +824,7 @@ foam.CLASS({
   implements: [ 'foam.core.reflow.TreeCellFormatter' ],
 
   requires: [
-    'foam.core.ai.ConversationalLLMService',
+    'foam.ai.llm.ConversationalLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
     'foam.core.reflow.DependencyScanner',
@@ -889,6 +892,7 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'isChildLocked',
     'value as flow'
   ],
 
@@ -1146,6 +1150,16 @@ foam.CLASS({
       transient: true,
       hidden: true,
       documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    },
+    {
+      class: 'Boolean',
+      name: 'isChildLocked',
+      hidden: true,
+      transient: true,
+      documentation: 'Mirrors value.childLock so it can be exported on its own.',
+      expression: function(value$childLock) {
+        return !! value$childLock;
+      }
     }
   ],
 
@@ -1372,7 +1386,6 @@ foam.CLASS({
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
 
-      this.isMenuOpen = false;
       this.onDetach(() => {
         this.showNav = true;
         this.isMenuOpen = oldIsMenuOpen;
@@ -2045,6 +2058,12 @@ foam.CLASS({
           embedSVG: true
         }).addClass(this.myClass('element-row-icon')).end();
       }));
+    },
+
+    function isChildLocked_() {
+      if ( ! this.value.childLock ) return false;
+      this.notify('This Flow is locked: blocks cannot be added, moved or deleted.', '', this.LogLevel.WARN, true);
+      return true;
     }
   ],
 
@@ -2116,6 +2135,9 @@ foam.CLASS({
     {
       name: 'clear',
       code: function() {
+        // Don't clear if the flow is locked
+        if ( this.isChildLocked_() ) return;
+
         this.clearFlow();
         this.focusInput();
         this.flowName = '';

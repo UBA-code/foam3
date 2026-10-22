@@ -116,6 +116,9 @@ Explains `foam.u2.memento.Memento`, FOAM's hierarchical URL-hash state sync (`me
 **[U3](U3.md)**
 Documents U3 (`foam.u2`), FOAM's wrapped-DOM reactive GUI library: history (U1 templates → U2 virtual DOM → U3 direct DOM), the Node class hierarchy (Text/SlotNode/FunctionNode/Element), DOM building via `start`/`end`/`add`/`tag`, `add()` polymorphism, CSS scoping with `^`, reactive slots, ControllerMode/DisplayMode/visibility pipeline, `onDetach` cleanup, and the `render()` method contract.
 
+**[CSSTokens](CSSTokens.md)**
+How to think about CSS tokens: where a `$token`'s value comes from (class, shared list, theme row), a `value` is the fallback and a mode entry wins, the `color` and `density` axes in `activeVariants`, what `useVariants` gates, which class to declare (a colour is a `ColorToken`; a non-colour that flips with mode is `CSSToken` + `variantKey`; the rest plain), how to add a token and the spacing/radius/shadow/z-index/motion scales, and theme override rows.
+
 **[ReactiveUI](ReactiveUI.md)**
 Explains FOAM's four reactive UI patterns from lightest to heaviest: slot binding (`prop$`), `slot.dot()` for nested properties, `slot.map()` for value transforms, and `dynamic()` for DOM-structure rebuilds. Includes a decision framework for choosing the right pattern.
 
@@ -136,6 +139,9 @@ Describes the modal component hierarchy: `Popup` (base, full-screen overlay), `S
 
 **[CSSLayout](CSSLayout.md)**
 What a `css:` block goes through before the browser sees it (installed on first create, the `^` and `$token` text rewrites), which box scrolls and how to pin a header, hiding with `shown`, and how popups, modals and the z-index layers stack.
+
+**[Themes](Themes.md)**
+How an app gets its look: which Theme a user gets (domain, then spid), `cssTokens` and `ColorToken` with their `$hover`/`$foreground` forms and dark variants, recolouring a theme with `CSSTokenOverride` rows, reading a token from JS, and the legacy `%PRIMARY1%` macros to avoid.
 
 **[Notifications](Notifications.md)**
 Overview of the notification system: creating `Notification` objects via `notificationDAO`, extending the base class for custom types, display via the bell icon and `NotificationCitationView`, and how to write custom citation views.

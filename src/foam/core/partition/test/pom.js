@@ -27,7 +27,8 @@ foam.POM({
     { name: 'PartitionedDAOSelectTest',           flags: 'js|java' },
     { name: 'PartitionedCompactionTest',          flags: 'js|java' },
     { name: 'PartitionedDAOUnprefixedFindTest',   flags: 'js|java' },
-    { name: 'PartitionedAddIndexTest',            flags: 'js|java' }
+    { name: 'PartitionedAddIndexTest',            flags: 'js|java' },
+    { name: 'PartitionedDAOTwoLevelIdTest',       flags: 'js|java' }
   ],
 
   javaFiles: [

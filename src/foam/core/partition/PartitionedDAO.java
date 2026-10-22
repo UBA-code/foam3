@@ -30,7 +30,7 @@ public class PartitionedDAO
   extends AbstractPartitionedDAO // generated from AbstractPartitionDAO.js
 {
 
-  protected final static String NO_PART = "".intern();
+  protected final static String NO_PART = "";
 
   /** Every partition owns a directory, and its journal lives inside under this
       fixed name. That keeps two namespaces apart structurally rather than by
@@ -297,7 +297,7 @@ public class PartitionedDAO
   }
 
   public DAO createDAO(String part) {
-    Loggers.logger(getX(), this).info("Creating partiion " + part);
+    Loggers.logger(getX(), this).info("Creating partition " + part);
 
     String rawPart     = part;
     String journalName = journalNameFor(part);
@@ -360,10 +360,12 @@ public class PartitionedDAO
 
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
-    // -1 keeps the trailing empty segment: an unset id arrives here as "" at
-    // depth 1 and as "<a>~" at depth 2, and dropping that empty tail would
-    // re-append the previous level's key as the sequence segment.
+    // -1 keeps a trailing empty segment: a new record reaches the second
+    // level as "1~", which must split to ["1", ""] (no key yet), not ["1"],
+    // or the outer part "1" is reused as its key and every new record in
+    // the partition gets the same id.
     String[] a = getID(obj).split(SEPARATOR, -1);
+    //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
       for ( int i = 0 ; i < getDepth()-1 ; i++ ) {
@@ -449,7 +451,7 @@ public class PartitionedDAO
       predicate carries an AllPartitions naming this level's property,
       otherwise the single one an EQ routes to. */
   public String[] resolvePartitions(Predicate predicate) {
-    if ( hasAllPartitions(predicate) ) return getPartitions();
+    if ( hasAllPartitions(predicate, getPartitionProperty()) ) return getPartitions();
 
     Object part = extractPredicateValue(predicate);
 
@@ -474,17 +476,19 @@ public class PartitionedDAO
     return parts.toArray(new String[0]);
   }
 
-  /** True when the predicate asks for every partition of THIS level. Mirrors
-      extractPredicateValue's traversal: a bare term, or any arg of an AND.
-      Comparing arg1 by reference matches how extractPredicateValue matches the
-      partition property. */
-  protected boolean hasAllPartitions(Predicate predicate) {
+  /** True when the predicate asks for every partition of the level
+      partitioned on prop. Mirrors extractPredicateValue's traversal: a bare
+      term, or any arg of an AND. Comparing arg1 by reference matches how
+      extractPredicateValue matches the partition property. Static so that
+      decorators above a PartitionedDAO, such as ProgramAwareDAO, can ask the
+      same question without a PartitionedDAO instance. */
+  public static boolean hasAllPartitions(Predicate predicate, Expr prop) {
     if ( predicate instanceof AllPartitions )
-      return ((AllPartitions) predicate).getArg1() == getPartitionProperty();
+      return ((AllPartitions) predicate).getArg1() == prop;
 
     if ( predicate instanceof And ) {
       for ( Predicate arg : ((And) predicate).getArgs() ) {
-        if ( hasAllPartitions(arg) ) return true;
+        if ( hasAllPartitions(arg, prop) ) return true;
       }
     }
 

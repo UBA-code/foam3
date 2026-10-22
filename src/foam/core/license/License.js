@@ -13,14 +13,9 @@ foam.CLASS({
 
   ids: [ 'daoKey', 'spid' ],
 
-  messages: [
-    {
-      name: 'LTE_ZERO_QUOTA_MSG',
-      messageMap: {
-        en: "The quota must be at least 1",
-        fr: "Le quota doit être d'au moins 1"
-      }
-    }
+  imports: [
+    'cSpecDAO',
+    'ruleDAO'
   ],
 
   properties: [
@@ -44,17 +39,17 @@ foam.CLASS({
       required: true,
       documentation: 'Name of the DAO this License applies to',
       view: function(_, X) { // Need acces to service.read.ruleDAO for this to populate
-        var E = foam.mlang.Expressions.create();
-
-        var promise = X.ruleDAO.select().then(function(sink) {
-          // Keep only rules whose action is a LicenseRuleAction, and collect their daoKeys
-          var daoKeys = sink.array
-            .filter(function(rule) {
-              return foam.core.license.LicenseRuleAction.isInstance(rule.action);
-            })
-            .map(function(rule) { return rule.daoKey; });
-
-          return X.cSpecDAO.where(E.IN(foam.core.boot.CSpec.ID, daoKeys));
+        let E = foam.mlang.Expressions.create();
+        let dao = X.data.slot(function(daoKeys) {
+          if ( ! daoKeys || daoKeys.length == 0 ) {
+            // FIXME: The rule dao select in init is not working
+            // and an empty array appears to generate
+            // Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'f')
+            // at Object.value (PredicateArray.js:27:18)
+            // at foam.CLASS.properties.name (FObjectArray.js:88:23)
+            return X.data.cSpecDAO;
+          }
+          return X.data.cSpecDAO.where(E.IN(foam.core.boot.CSpec.ID, daoKeys || []));
         });
 
         return {
@@ -63,7 +58,7 @@ foam.CLASS({
           sections: [
             {
               heading: 'Licensable DAOs',
-              dao: foam.dao.PromisedDAO.create({ promise: promise }, X)
+              dao$: dao
             }
           ]
         };
@@ -73,11 +68,9 @@ foam.CLASS({
     {
       class: 'Long',
       name: 'quota',
-      required: true,
       documentation: 'Maximum number of "things" that can be active at a time',
-      validateObj: function(quota) {
-        if ( quota <= 0 ) return this.LTE_ZERO_QUOTA_MSG;
-      }
+      value: 1,
+      min: 1
     },
     {
       class: 'Boolean',
@@ -99,10 +92,26 @@ foam.CLASS({
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO',
       documentation: 'Current number of active "things". Updated when daoKey puts or removes'
+    },
+    {
+      class: 'Array',
+      name: 'daoKeys',
+      hidden: true,
+      value: []
     }
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      let self = this;
+
+      this.ruleDAO.select().then(function(sink) {
+        self.daoKeys = sink.array.filter(function(rule) {
+          return foam.core.license.LicenseRuleAction.isInstance(rule.action);
+        }).map(function(rule) { return rule && rule.daoKey; });
+      });
+    },
     { // Override toSummary() to display the License's name rather than its Id in DetailView
       name: 'toSummary',
       type: 'String',
