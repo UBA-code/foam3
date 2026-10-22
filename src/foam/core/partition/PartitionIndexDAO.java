@@ -223,7 +223,9 @@ public class PartitionIndexDAO
       PartitionIndexEntry entry = (PartitionIndexEntry) spec.index.find_(x, id);
       if ( entry == null ) return;
 
-      Count count = (Count) getDelegate().select_(x, new Count(), 0, MAX_SAFE_INTEGER, null,
+      // One surviving row keeps the entry. Counting every match here would
+      // repeatedly scan the remaining rows when removeAll deletes a file.
+      Count count = (Count) getDelegate().select_(x, new Count(), 0, 1, null,
         AND(getPartitioned().partitionPredicate(entry.getKey()), EQ(spec.prop, value)));
       if ( count.getValue() == 0 ) spec.index.remove_(x, entry);
     }

@@ -129,6 +129,59 @@ foam.CLASS({
 
         testPruneRacingAPut(x);
         testRoutingAndUpkeep(x);
+        testBulkPruning(x);
+      `
+    },
+    {
+      name: 'testBulkPruning',
+      args: 'X x',
+      javaCode: `
+        X tx = newStorageContext(x);
+        String dirName = "pidxbulk" + System.nanoTime() + "/";
+        java.util.concurrent.atomic.AtomicLong checks = new java.util.concurrent.atomic.AtomicLong();
+        java.util.concurrent.atomic.AtomicLong matches = new java.util.concurrent.atomic.AtomicLong();
+        RegionDatePartitionedDAO inner = new RegionDatePartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), dirName, PartitionStrRecord.REGION, PartitionStrRecord.DATE) {
+          public foam.dao.Sink select_(X sx, foam.dao.Sink sink, long skip, long limit, foam.mlang.order.Comparator order, foam.mlang.predicate.Predicate predicate) {
+            foam.dao.Sink ret = super.select_(sx, sink, skip, limit, order, predicate);
+            if ( sink instanceof Count ) {
+              checks.incrementAndGet();
+              matches.addAndGet(((Count) sink).getValue());
+            }
+            return ret;
+          }
+        };
+        PartitionIndexDAO dao = new PartitionIndexDAO(tx, inner).index(PartitionStrRecord.DATA);
+        int rowsPerLeaf = 32;
+        for ( int i = 0 ; i < rowsPerLeaf ; i++ ) {
+          dao.put(row(1, 2020, 0, 15, 5, "upload"));
+          dao.put(row(2, 2020, 1, 15, 5, "upload"));
+        }
+        dao.put(row(1, 2020, 0, 16, 5, "keep"));
+        dao.put(row(3, 2020, 2, 15, 5, "keep"));
+
+        // A file spans two old date leaves. Each removal should inspect only
+        // one survivor, except the last removal in each leaf, which finds none.
+        dao.where(EQ(PartitionStrRecord.DATA, "upload")).removeAll();
+        expect(checks.get(), 2L * rowsPerLeaf, "one pruning check per removed row");
+        expect(matches.get(), 2L * (rowsPerLeaf - 1), "pruning stops at the first surviving match in each leaf");
+
+        // Query the underlying data too: a missing index entry must not hide
+        // an undeleted row and make the removal assertion pass.
+        test(count(inner, AND(allRegions(), GTE(PartitionStrRecord.DATE, date(2020, 0, 1)),
+          LT(PartitionStrRecord.DATE, date(2021, 0, 1)), EQ(PartitionStrRecord.DATA, "upload"))) == 0,
+          "bulk removal deletes every upload row from the historical leaves");
+        DAO dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(allBuckets());
+        test(count(dataIndex, EQ(PartitionIndexEntry.VALUE, "upload")) == 0,
+          "both upload routes are pruned after their last row is removed");
+        test(count(dataIndex, EQ(PartitionIndexEntry.VALUE, "keep")) == 2,
+          "unrelated routes survive, including a route sharing a removed file's leaf");
+
+        PartitionIndexDAO restarted = new PartitionIndexDAO(tx, new RegionDatePartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), dirName, PartitionStrRecord.REGION, PartitionStrRecord.DATE))
+          .index(PartitionStrRecord.DATA);
+        test(count(restarted, EQ(PartitionStrRecord.DATA, "upload")) == 0, "removed upload stays absent after restart");
+        test(count(restarted, EQ(PartitionStrRecord.DATA, "keep")) == 2, "unrelated rows remain routable after restart");
       `
     },
     {
