@@ -285,9 +285,6 @@ public class PartitionedDAO
       // Resume a migration interrupted after the legacy file was staged.
       if ( ! parent.exists() && journal.isFile() )
         Files.move(staged.toPath(), parent.toPath());
-
-      if ( ! parent.isDirectory() && ! parent.mkdirs() )
-        throw new IOException("Failed to create directory " + parent);
     } catch ( IOException e ) {
       throw new RuntimeException(
         "Failed to prepare partition directory " + parent, e);
@@ -300,11 +297,12 @@ public class PartitionedDAO
     String rawPart     = part;
     String journalName = journalNameFor(part);
 
-    // TODO: directory creation would be better done by JDAO itself
-    // Create the directory in the WRITABLE FileSystemStorage where JDAO writes the
+    // Only a legacy single-file partition is upgraded here. A partition with
+    // no data gets no directory: the journal creates it on its first write,
+    // so a query spanning a hundred empty days leaves nothing on disk.
+    // Upgrade in the WRITABLE FileSystemStorage where JDAO writes the
     // journal, not the Storage.class read storage — the two differ when
-    // resource.journals.dir is set (read journals come from a resource/jar), so
-    // mkdirs on Storage.class would target the wrong root and the write would fail.
+    // resource.journals.dir is set (read journals come from a resource/jar).
     Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
     File    parent  = storage.get(journalName).getParentFile();
     preparePartitionDirectory(parent);
