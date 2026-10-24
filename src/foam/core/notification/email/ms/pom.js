@@ -18,9 +18,6 @@ foam.POM({
     { name: "MicrosoftGraphEmailAgent",       flags: "js|java" }
   ],
   javaDependencies: [
-    'com.azure:azure-identity:1.15.4',
-    'com.microsoft.ews-java-api:ews-java-api:2.0',
-    'javax.xml.bind:jaxb-api:2.3.1',
-    'javax.xml.ws:jaxws-api:2.3.1'
+    'com.azure:azure-identity:1.15.4'
   ]
 });
