@@ -25,6 +25,7 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.lang.X',
     'foam.log.LogLevel',
+    'foam.util.SafetyUtil',
 
     'com.azure.core.credential.AccessToken',
     'com.azure.core.credential.TokenRequestContext',
@@ -49,11 +50,6 @@ foam.CLASS({
       name: 'SCOPE',
       type: 'String',
       value: 'https://graph.microsoft.com/.default'
-    },
-    {
-      name: 'USERS_URL',
-      type: 'String',
-      value: 'https://graph.microsoft.com/v1.0/users/'
     }
   ],
 
@@ -71,6 +67,12 @@ foam.CLASS({
       value: 'microsoftGraphEmailAgentThrottle'
     },
     {
+      name: 'graphUrl',
+      class: 'String',
+      documentation: 'Graph users endpoint; the sender address and /sendMail are appended to it.',
+      value: 'https://graph.microsoft.com/v1.0/users/'
+    },
+    {
       name: 'credential',
       class: 'Object',
       javaType: 'com.azure.identity.ClientSecretCredential',
@@ -79,10 +81,10 @@ foam.CLASS({
       javaFactory: `
         EmailServiceConfig config = findId(getX());
         if ( config == null ||
-             config.getClientId() == null ||
-             config.getTenantId() == null ||
-             config.getPassword() == null ||
-             config.getUsername() == null ) {
+             SafetyUtil.isEmpty(config.getClientId()) ||
+             SafetyUtil.isEmpty(config.getTenantId()) ||
+             SafetyUtil.isEmpty(config.getPassword()) ||
+             SafetyUtil.isEmpty(config.getUsername()) ) {
           throw new IllegalArgumentException("Missing required email service configuration.");
         }
         return new ClientSecretCredentialBuilder()
@@ -209,7 +211,7 @@ foam.CLASS({
           ByteArrayOutputStream baos = new ByteArrayOutputStream();
           message.writeTo(baos);
           String from = findId(getX()).getUsername();
-          HttpRequest request = HttpRequest.newBuilder(URI.create(USERS_URL + from + "/sendMail"))
+          HttpRequest request = HttpRequest.newBuilder(URI.create(getGraphUrl() + from + "/sendMail"))
             .timeout(Duration.ofSeconds(60))
             .header("Authorization", "Bearer " + getAccessToken().getToken())
             .header("Content-Type", "text/plain")

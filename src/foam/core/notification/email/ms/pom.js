@@ -15,7 +15,11 @@ foam.POM({
   ],
   files: [
     { name: "EmailServiceConfig",             flags: "js|java" },
-    { name: "MicrosoftGraphEmailAgent",       flags: "js|java" }
+    { name: "MicrosoftGraphEmailAgent",       flags: "js|java" },
+    { name: "test/MicrosoftGraphEmailAgentTest", flags: "js&test|java&test" }
+  ],
+  journalFiles: [
+    { name: "test/tests",                     flags: "test" }
   ],
   javaDependencies: [
     'com.azure:azure-identity:1.15.4'
