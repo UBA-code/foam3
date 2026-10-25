@@ -54,7 +54,7 @@ foam.CLASS({
         int          total         = items.size();
         int          skipped       = 0;
 
-        Loggers.logger(x, this).info("execute-start", "id", getId(), "total", total, "runKey", getRunKey());
+        Loggers.logger(x, this).info("BatchJob: execute-start", "id", getId(), "total", total, "runKey", getRunKey());
 
         for ( int i = 0; i < total; i++ ) {
           String item = items.get(i);
@@ -64,13 +64,12 @@ foam.CLASS({
           // reportProgress calls save(), which writes this clone back and would
           // overwrite any status change made between here and that write.
           BatchJob dao = (BatchJob) jobDAO.find(getId());
-          Loggers.logger(x, this).info("loop-check", "i", i + 1, "total", total, "status", dao != null ? dao.getStatus() : "null", "item", item.length() > 60 ? item.substring(0, 60) : item);
+          Loggers.logger(x, this).debug("loop-check", "i", i + 1, "total", total, "status", dao != null ? dao.getStatus() : "null", "item", item.length() > 60 ? item.substring(0, 60) : item);
           if ( dao != null && dao.getStatus() == JobStatus.SUSPENDING ) {
             setStatus(JobStatus.SUSPENDED);
-            String msg = "Suspended at item " + (i + 1) + " of " + total + ". Resubmit with the same runKey to resume.";
-            out(msg);
             save(x);
-            Loggers.logger(x, this).info("suspended", "id", getId(), "item", i + 1, "total", total, "runKey", getRunKey());
+            out("Suspended at item " + (i + 1) + " of " + total + ". Resubmit with the same runKey to resume.");
+            Loggers.logger(x, this).info("BatchJob: suspended", "id", getId(), "item", i + 1, "total", total, "runKey", getRunKey());
             return;
           }
 
@@ -84,10 +83,10 @@ foam.CLASS({
                 existing = (BatchRecord) existing.fclone();
                 existing.setBatchNumber(i + 1);
                 checkpointDAO.put(existing);
-                Loggers.logger(x, this).info("checkpoint-backfill", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
+                Loggers.logger(x, this).debug("BatchJob: checkpoint-backfill", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
               }
               skipped++;
-              Loggers.logger(x, this).info("checkpoint-skip", "i", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
+              Loggers.logger(x, this).debug("checkpoint-skip", "i", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
               continue;
             }
           }
@@ -100,7 +99,7 @@ foam.CLASS({
               rec.setRunKey(getRunKey());
               rec.setItemId(item);
               rec.setBatchNumber(i + 1);
-              Loggers.logger(x, this).info("checkpoint-write", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
+              Loggers.logger(x, this).debug("BatchJob: checkpoint-write", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
               checkpointDAO.put(rec);
             }
           } catch ( Exception e ) {
@@ -121,17 +120,14 @@ foam.CLASS({
       label: 'Suspend',
       isEnabled: function(status) { return status === foam.core.job.JobStatus.RUNNING; },
       code: async function(X) {
-        console.log('[Suspend] clicked id=' + this.id);
 
         // Fetch fresh from server so the delegate's concrete class is preserved.
         // Putting `this` risks a stale client-side class the server cannot instantiate.
         const found = await X.jobDAO.find(this.id);
-        console.log('[Suspending] find result:', found ? ('status=' + found.status?.name) : 'null');
         if ( ! found ) { console.warn('[Suspend] job not found, aborting'); return; }
 
         const latest = found.clone();
         latest.status = foam.core.job.JobStatus.SUSPENDING;
-        console.log('[Suspend] putting status=SUSPENDING');
         try {
           const result = await X.jobDAO.put(latest);
           console.log('[Suspending] put OK, result status=' + result?.status?.name);

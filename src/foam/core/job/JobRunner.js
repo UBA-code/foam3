@@ -56,6 +56,7 @@ foam.CLASS({
           Loggers.logger(x, this).error("job", job.getClass().getSimpleName(), job.getId(), t);
         } finally {
           job.setExecutionTime(System.currentTimeMillis() - start);
+          if ( job.getProgress() != -1 && job.getStatus() == JobStatus.COMPLETED ) job.setProgress(100);
           job.save(x);
         }
       `
