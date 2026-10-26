@@ -45,6 +45,7 @@ foam.CLASS({
         testRefusals(x);
         testRolloverNaming(x);
         testNestedDateRange(x);
+        testNestedAllDates(x);
       `
     },
 
@@ -204,6 +205,40 @@ foam.CLASS({
           allOf(PartitionStrRecord.REGION),
           GTE(PartitionStrRecord.DATE, day(2024, Calendar.JUNE, 1)))));
         test(n == 2, "every region but June only, got " + n);
+      `
+    },
+
+    {
+      name: 'testNestedAllDates',
+      args: 'X x',
+      javaThrows: [ 'Throwable' ],
+      documentation: `AllPartitions can name each level of a nested
+        partitioned DAO, including a DatePartitionedDAO whose records are
+        outside its default time window.`,
+      javaCode: `
+        PartitionedDAO outer = new PartitionedDAO(
+          storageContext(x, newStorageDir()), PartitionStrRecord.getOwnClassInfo(),
+          "all-dates/", PartitionStrRecord.REGION) {
+          public DAO createDAO(String part) {
+            DatePartitionedDAO inner = new DatePartitionedDAO(
+              getX(), getOf(), partitionDirFor(part),
+              PartitionStrRecord.DATE, DatePartitioningScheme.YYYYMM, 3);
+            inner.setDepth(getDepth() + 1);
+            return inner;
+          }
+        };
+
+        Date jan = day(2024, Calendar.JANUARY, 15);
+        Date jun = day(2024, Calendar.JUNE,    15);
+        outer.put(dated(1, jan, "r1-jan"));
+        outer.put(dated(1, jun, "r1-jun"));
+        outer.put(dated(2, jan, "r2-jan"));
+        outer.put(dated(2, jun, "r2-jun"));
+
+        int n = count(outer.where(AND(
+          allOf(PartitionStrRecord.REGION),
+          allOf(PartitionStrRecord.DATE))));
+        test(n == 4, "every existing region and date partition was visited, got " + n);
       `
     },
 
