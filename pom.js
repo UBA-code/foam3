@@ -24,7 +24,6 @@ foam.POM({
     { source: 'webroot', targetDir: 'webroot' }
   ],
   javaDependencies: [
-    'com.authy:authy-java:1.1.0 -org.json:json',
     'org.json:json:20231013',
     'com.google.api-client:google-api-client:1.22.0',
     'com.google.apis:google-api-services-drive:v3-rev72-1.22.0',
@@ -37,7 +36,6 @@ foam.POM({
     'commons-codec:commons-codec:1.18.0',
     'commons-io:commons-io:2.14.0',
     'commons-lang:commons-lang:2.6',
-    'commons-net:commons-net:3.6',
     'jakarta.mail:jakarta.mail-api:2.1.2',
     'jakarta.activation:jakarta.activation-api:2.1.2',
     'jakarta.websocket:jakarta.websocket-api:2.0.0',
@@ -83,9 +81,6 @@ foam.POM({
     'io.netty:netty-handler-proxy:4.1.136.Final',
     'io.netty:netty-resolver-dns:4.1.136.Final',
     'io.netty:netty-resolver-dns-native-macos:4.1.136.Final',
-    'org.junit.jupiter:junit-jupiter-engine:5.6.0',
-    'org.junit.jupiter:junit-jupiter-params:5.6.0',
-    'org.junit.platform:junit-platform-launcher:1.6.0',
     'org.slf4j:slf4j-api:2.0.16',
     'org.slf4j:slf4j-simple:2.0.16'
   ]
