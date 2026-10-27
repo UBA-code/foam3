@@ -5,7 +5,7 @@ parameters (See foam.dao.jdbc.JDBCPooledDataSource and AbstractJDBCDAO).
 
 NOTE: the default implementation only supports a single JDBCConnectionSpec. To
 support multiple databases and connections, for each, create a uniquely named
-service entry and place it in a sub-context passed to the ProgresDAO.
+service entry and place it in a sub-context passed to the PostgresDAO.
 (example below)
 
 p({
@@ -32,10 +32,10 @@ p({
   "authenticate": true,
   "serviceScript": """
     x = x.put("JDBCConnectionSpec", x.get("exampleJDBCConnectionSpec"));
-    x.put("JDBCDataSource", new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA"));
+    x = x.put("JDBCDataSource", new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA"));
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(com.example.Example.getOwnClassInfo())
-      .setInnerDAO(new foam.dao.jdbc.PostgresDAO(x), com.example.Example.getOwnClassInfo())
+      .setInnerDAO(new foam.dao.jdbc.PostgresDAO(x, com.example.Example.getOwnClassInfo()))
       .build()
   """
 })
