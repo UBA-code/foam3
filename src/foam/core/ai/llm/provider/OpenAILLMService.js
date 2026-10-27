@@ -17,6 +17,9 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.lang.X',
     'foam.ai.llm.*',
+    'foam.util.SafetyUtil',
+    'java.util.ArrayList',
+    'java.util.List',
     'java.io.BufferedReader',
     'java.io.InputStreamReader',
     'java.io.OutputStream',
@@ -58,54 +61,96 @@ foam.CLASS({
     {
       name: 'complete',
       javaCode: `
-        JSONArray messages = new JSONArray();
+        ChatMessage msg = new ChatMessage();
+        msg.setRole(ChatRole.USER);
+        msg.setContent(request.getPrompt());
         LLMOptions options = request.getOptions();
-
-        String systemPrompt = options.getSystemPrompt();
-        if ( systemPrompt != null && ! systemPrompt.isEmpty() ) {
-          JSONObject sys = new JSONObject();
-          sys.put("role", "system");
-          sys.put("content", systemPrompt);
-          messages.put(sys);
-        }
-
-        JSONObject msg = new JSONObject();
-        msg.put("role", "user");
-        msg.put("content", request.getPrompt());
-        messages.put(msg);
-
-        return doRequest(x, messages, options);
+        return doRequest(x, apiMessages(options.getSystemPrompt(), new ChatMessage[] { msg }), options);
       `
     },
     {
       name: 'chat',
       javaCode: `
-        JSONArray apiMessages = new JSONArray();
         LLMOptions options = request.getOptions();
-
-        String systemPrompt = options.getSystemPrompt();
-        if ( systemPrompt != null && ! systemPrompt.isEmpty() ) {
-          JSONObject sys = new JSONObject();
-          sys.put("role", "system");
-          sys.put("content", systemPrompt);
-          apiMessages.put(sys);
-        }
-
-        for ( ChatMessage m : request.getMessages() ) {
-          JSONObject msg = new JSONObject();
-          msg.put("role", m.getRole().getLabel());
-          msg.put("content", m.getContent());
-          apiMessages.put(msg);
-        }
-
-        return doRequest(x, apiMessages, options);
+        return doRequest(x, apiMessages(options.getSystemPrompt(), request.getMessages()), options);
       `
     },
     {
-      name: 'doRequest',
+      name: 'apiMessages',
+      documentation: `
+        The conversation in the chat-completions format: the system prompt as the first
+        message; an assistant turn that called tools carries tool_calls, followed by one
+        role "tool" message per call holding its result, before the next user text.
+      `,
+      type: 'Object',
+      args: 'String systemPrompt, foam.ai.llm.ChatMessage[] messages',
+      javaCode: `
+        JSONArray out = new JSONArray();
+        if ( ! SafetyUtil.isEmpty(systemPrompt) ) {
+          JSONObject sys = new JSONObject();
+          sys.put("role",    "system");
+          sys.put("content", systemPrompt);
+          out.put(sys);
+        }
+        LLMToolUse[] pending = null;
+        for ( ChatMessage m : messages ) {
+          if ( pending != null ) {
+            toolResults(out, pending);
+            pending = null;
+          }
+          JSONObject msg = new JSONObject();
+          msg.put("role", m.getRole().getLabel());
+          if ( m.getRole() == ChatRole.ASSISTANT && m.getToolUses().length > 0 ) {
+            msg.put("content", SafetyUtil.isEmpty(m.getContent()) ? JSONObject.NULL : m.getContent());
+            JSONArray calls = new JSONArray();
+            for ( LLMToolUse u : m.getToolUses() ) {
+              JSONObject fn = new JSONObject();
+              fn.put("name",      u.getName());
+              fn.put("arguments", SafetyUtil.isEmpty(u.getInputJson()) ? "{}" : u.getInputJson());
+              JSONObject call = new JSONObject();
+              call.put("id",       u.getId());
+              call.put("type",     "function");
+              call.put("function", fn);
+              calls.put(call);
+            }
+            msg.put("tool_calls", calls);
+            pending = m.getToolUses();
+            out.put(msg);
+            continue;
+          }
+          // a turn holding only tool results sends no empty user message
+          if ( m.getRole() == ChatRole.USER && SafetyUtil.isEmpty(m.getContent()) && out.length() > 0
+               && "tool".equals(out.getJSONObject(out.length() - 1).optString("role")) ) continue;
+          msg.put("content", m.getContent());
+          out.put(msg);
+        }
+        if ( pending != null ) toolResults(out, pending);
+        return out;
+      `
+    },
+    {
+      name: 'toolResults',
       visibility: 'protected',
-      type: 'foam.ai.llm.LLMResponse',
-      args: 'Context x, Object messages, LLMOptions options',
+      args: 'Object out, foam.ai.llm.LLMToolUse[] uses',
+      javaCode: `
+        for ( LLMToolUse u : uses ) {
+          JSONObject msg = new JSONObject();
+          msg.put("role",         "tool");
+          msg.put("tool_call_id", u.getId());
+          msg.put("content",      u.getResult());
+          ((JSONArray) out).put(msg);
+        }
+      `
+    },
+    {
+      name: 'requestBody',
+      documentation: `
+        The JSON body sent to the chat-completions endpoint, built without any network call
+        so a test can read it. Web search and thinking have no chat-completions form and are
+        left out.
+      `,
+      type: 'Object',
+      args: 'Object messages, foam.ai.llm.LLMOptions options',
       javaCode: `
         String model = options.getModel();
         if ( model == null || model.isEmpty() ) model = getDefaultModel();
@@ -119,6 +164,77 @@ foam.CLASS({
         if ( options.getTemperature() > 0 ) {
           body.put("temperature", options.getTemperature());
         }
+
+        if ( options.getTools().length > 0 ) {
+          JSONArray tools = new JSONArray();
+          for ( LLMTool t : options.getTools() ) {
+            JSONObject fn = new JSONObject();
+            fn.put("name",        t.getName());
+            fn.put("description", t.getDescription());
+            fn.put("parameters",  SafetyUtil.isEmpty(t.getInputSchema())
+              ? new JSONObject().put("type", "object").put("properties", new JSONObject())
+              : new JSONObject(t.getInputSchema()));
+            JSONObject tool = new JSONObject();
+            tool.put("type",     "function");
+            tool.put("function", fn);
+            tools.put(tool);
+          }
+          body.put("tools", tools);
+        }
+        return body;
+      `
+    },
+    {
+      name: 'parseReply',
+      documentation: `
+        The response read from a chat-completions reply. tool_calls become LLMToolUses and
+        the stop reason reads tool_use, as from every provider; cached prompt tokens are
+        counted once, as cache reads, not again as input.
+      `,
+      type: 'foam.ai.llm.LLMResponse',
+      args: 'Object reply',
+      javaCode: `
+        JSONObject data    = (JSONObject) reply;
+        JSONArray  choices = data.optJSONArray("choices");
+        JSONObject choice  = choices != null && choices.length() > 0 ? choices.getJSONObject(0) : null;
+        JSONObject message = choice == null ? null : choice.optJSONObject("message");
+
+        List<LLMToolUse> uses  = new ArrayList<>();
+        JSONArray        calls = message == null ? null : message.optJSONArray("tool_calls");
+        for ( int i = 0 ; calls != null && i < calls.length() ; i++ ) {
+          JSONObject call = calls.getJSONObject(i);
+          JSONObject fn   = call.optJSONObject("function");
+          LLMToolUse u    = new LLMToolUse();
+          u.setId(call.optString("id", ""));
+          u.setName(fn == null ? "" : fn.optString("name", ""));
+          u.setInputJson(fn == null ? "{}" : fn.optString("arguments", "{}"));
+          uses.add(u);
+        }
+
+        LLMResponse response = new LLMResponse();
+        response.setContent(message == null || message.isNull("content") ? "" : message.optString("content", ""));
+        response.setToolUses(uses.toArray(new LLMToolUse[0]));
+        response.setModel(data.optString("model", ""));
+        response.setStopReason(uses.size() > 0 ? "tool_use" : choice != null ? choice.optString("finish_reason", "") : "");
+
+        JSONObject usage = data.optJSONObject("usage");
+        if ( usage != null ) {
+          JSONObject details = usage.optJSONObject("prompt_tokens_details");
+          int cached = details == null ? 0 : details.optInt("cached_tokens", 0);
+          response.setInputTokens(usage.optInt("prompt_tokens", 0) - cached);
+          response.setCacheReadTokens(cached);
+          response.setOutputTokens(usage.optInt("completion_tokens", 0));
+        }
+        return response;
+      `
+    },
+    {
+      name: 'doRequest',
+      visibility: 'protected',
+      type: 'foam.ai.llm.LLMResponse',
+      args: 'Context x, Object messages, LLMOptions options',
+      javaCode: `
+        JSONObject body = (JSONObject) requestBody(messages, options);
 
         HttpURLConnection conn = null;
         try {
@@ -152,25 +268,7 @@ foam.CLASS({
           while ( ( line = reader.readLine() ) != null ) sb.append(line);
           reader.close();
 
-          JSONObject data   = new JSONObject(sb.toString());
-          JSONArray  choices = data.optJSONArray("choices");
-          JSONObject choice  = choices != null && choices.length() > 0
-            ? choices.getJSONObject(0) : null;
-
-          LLMResponse response = new LLMResponse();
-          response.setContent(
-            choice != null ? choice.getJSONObject("message").getString("content") : "");
-          response.setModel(data.optString("model", ""));
-          response.setStopReason(
-            choice != null ? choice.optString("finish_reason", "") : "");
-
-          JSONObject usage = data.optJSONObject("usage");
-          if ( usage != null ) {
-            response.setInputTokens(usage.optInt("prompt_tokens", 0));
-            response.setOutputTokens(usage.optInt("completion_tokens", 0));
-          }
-
-          return response;
+          return parseReply(new JSONObject(sb.toString()));
         } catch ( RuntimeException e ) {
           throw e;
         } catch ( Exception e ) {
