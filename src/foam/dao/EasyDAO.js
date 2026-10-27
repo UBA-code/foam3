@@ -1394,7 +1394,7 @@ dao loading, which improves overall startup time.`,
       return this.getOuterDAO(dao);
     },
     {
-      documentation: `Supports providing the 'name' property of an index which can bed used to select the 'table' in traditional databases.`,
+      documentation: `Supports providing the 'name' property of an index which can be used to select the 'table' in traditional databases.`,
       name: 'addTableIndex',
       type: 'foam.dao.EasyDAO',
       args: 'String name, foam.lang.Indexer... indexers',

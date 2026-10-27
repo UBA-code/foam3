@@ -28,7 +28,7 @@ p({
     }
     x = x.put("JDBCConnectionSpec", jdbcSpec);
     x = x.put("JDBCDataSource", new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA"));
-    postgresdao = new foam.dao.jdbc.PostgresDAO(x, foam.dao.jdbc.test.TestEmployee.getOwnClassInfo())
+    postgresdao = new foam.dao.jdbc.PostgresDAO(x, foam.dao.jdbc.test.TestEmployee.getOwnClassInfo());
      return new foam.dao.EasyDAO.Builder(x)
       .setSeqNo(true)
       .setPostgres(true)
