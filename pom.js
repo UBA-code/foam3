@@ -9,6 +9,7 @@ foam.POM({
   version: 3,
   excludes: [ 'build', 'deployment', 'foam3', 'node_modules', 'doc/templates' ],
   projects: [
+//    { name: 'src/foam-bootstrap-pom' },
     { name: 'src/pom' },
     { name: 'src/foam/core/pom' },
     { name: 'src/foam/core/analytics/mixpanel/pom' },
