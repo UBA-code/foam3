@@ -8,9 +8,12 @@ foam.CLASS({
   package: 'foam.core.ai.llm.provider',
   name: 'OpenAILLMService',
 
-  implements: [ 'foam.ai.llm.LLMService' ],
+  extends: 'foam.core.ai.llm.provider.AbstractHTTPLLMService',
 
-  documentation: 'OpenAI implementation of LLMService. Server-side only (Java).',
+  documentation: `
+    OpenAI implementation of LLMService, on the chat-completions API, which DeepSeek,
+    Ollama and OpenAI-format gateways also speak. Server-side only (Java).
+  `,
 
   javaImports: [
     'foam.core.auth.APIKeyCredential',
@@ -21,10 +24,11 @@ foam.CLASS({
     'java.util.ArrayList',
     'java.util.List',
     'java.io.BufferedReader',
-    'java.io.InputStreamReader',
-    'java.io.OutputStream',
-    'java.net.HttpURLConnection',
-    'java.net.URL',
+    'java.io.IOException',
+    'java.util.HashMap',
+    'java.util.LinkedHashMap',
+    'java.util.Map',
+    'java.util.TreeMap',
     'org.json.JSONArray',
     'org.json.JSONObject'
   ],
@@ -38,7 +42,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'apiKey',
-      javaFactory: `
+      documentation: 'Read from the credential on every call, so a key rotated in the vault is used on the next one.',
+      javaGetter: `
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find(getCredentialId());
         if ( cred == null ) throw new RuntimeException("LLM credential not found: " + getCredentialId());
@@ -46,35 +51,16 @@ foam.CLASS({
       `
     },
     {
-      class: 'String',
       name: 'defaultModel',
       value: 'gpt-4o'
     },
     {
-      class: 'String',
       name: 'baseURL',
       value: 'https://api.openai.com/v1/chat/completions'
     }
   ],
 
   methods: [
-    {
-      name: 'complete',
-      javaCode: `
-        ChatMessage msg = new ChatMessage();
-        msg.setRole(ChatRole.USER);
-        msg.setContent(request.getPrompt());
-        LLMOptions options = request.getOptions();
-        return doRequest(x, apiMessages(options.getSystemPrompt(), new ChatMessage[] { msg }), options);
-      `
-    },
-    {
-      name: 'chat',
-      javaCode: `
-        LLMOptions options = request.getOptions();
-        return doRequest(x, apiMessages(options.getSystemPrompt(), request.getMessages()), options);
-      `
-    },
     {
       name: 'apiMessages',
       documentation: `
@@ -160,6 +146,10 @@ foam.CLASS({
         body.put("model",      model);
         body.put("max_tokens", maxTokens);
         body.put("messages",   (JSONArray) messages);
+        // streamed so the caller hears how far a long reply has got; without
+        // include_usage a streamed reply carries no token counts
+        body.put("stream",         true);
+        body.put("stream_options", new JSONObject().put("include_usage", true));
 
         if ( options.getTemperature() > 0 ) {
           body.put("temperature", options.getTemperature());
@@ -229,53 +219,78 @@ foam.CLASS({
       `
     },
     {
-      name: 'doRequest',
-      visibility: 'protected',
-      type: 'foam.ai.llm.LLMResponse',
-      args: 'Context x, Object messages, LLMOptions options',
+      name: 'providerHeaders',
       javaCode: `
-        JSONObject body = (JSONObject) requestBody(messages, options);
-
-        HttpURLConnection conn = null;
-        try {
-          URL url = new URL(getBaseURL());
-          conn = (HttpURLConnection) url.openConnection();
-          conn.setRequestMethod("POST");
-          conn.setRequestProperty("Content-Type",  "application/json");
-          conn.setRequestProperty("Authorization", "Bearer " + getApiKey());
-          conn.setDoOutput(true);
-
-          try ( OutputStream os = conn.getOutputStream() ) {
-            os.write(body.toString().getBytes("UTF-8"));
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Authorization", "Bearer " + getApiKey());
+        return headers;
+      `
+    },
+    {
+      name: 'readStream',
+      documentation: `
+        Rebuilds a chat-completions reply from its streamed chunks, in the shape a call
+        without streaming returns. Text arrives as delta.content pieces. A tool call
+        arrives as pieces under its index: the first carries its id and name, the rest add
+        to its arguments text. With include_usage a chunk with no choices carries the token
+        counts, and "data: [DONE]" ends the stream. An error chunk fails the call; a stream
+        that ends before [DONE] throws.
+      `,
+      javaCode: `
+        Written       written   = new Written(progress);
+        StringBuilder text      = new StringBuilder();
+        Map<Integer, JSONObject>    calls     = new TreeMap<>();
+        Map<Integer, StringBuilder> arguments = new HashMap<>();
+        Object     finish = null;
+        JSONObject usage  = null;
+        for ( String data ; ( data = nextData(in) ) != null ; ) {
+          if ( "[DONE]".equals(data) ) {
+            JSONArray toolCalls = new JSONArray();
+            for ( Map.Entry<Integer, JSONObject> call : calls.entrySet() ) {
+              call.getValue().getJSONObject("function").put("arguments", arguments.get(call.getKey()).toString());
+              toolCalls.put(call.getValue());
+            }
+            JSONObject message = new JSONObject();
+            message.put("role",    "assistant");
+            message.put("content", text.length() == 0 ? JSONObject.NULL : text.toString());
+            if ( toolCalls.length() > 0 ) message.put("tool_calls", toolCalls);
+            JSONObject choice = new JSONObject();
+            choice.put("index",         0);
+            choice.put("message",       message);
+            choice.put("finish_reason", finish == null ? JSONObject.NULL : finish);
+            JSONObject reply = new JSONObject();
+            reply.put("choices", new JSONArray().put(choice));
+            if ( usage != null ) reply.put("usage", usage);
+            return reply;
           }
-
-          int status = conn.getResponseCode();
-          if ( status != 200 ) {
-            BufferedReader err = new BufferedReader(
-              new InputStreamReader(conn.getErrorStream(), "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ( ( line = err.readLine() ) != null ) sb.append(line);
-            err.close();
-            throw new RuntimeException(
-              "OpenAI API error (" + status + "): " + sb.toString());
+          JSONObject chunk = object(data);
+          if ( chunk.has("error") ) throw new IOException("The reply stream reported an error: " + chunk.opt("error"));
+          JSONArray choices = chunk.optJSONArray("choices");
+          for ( int i = 0 ; choices != null && i < choices.length() ; i++ ) {
+            JSONObject choice = choices.getJSONObject(i);
+            if ( ! choice.isNull("finish_reason") && choice.has("finish_reason") ) finish = choice.get("finish_reason");
+            JSONObject delta = choice.optJSONObject("delta");
+            if ( delta == null ) continue;
+            String piece = delta.isNull("content") ? "" : delta.optString("content", "");
+            text.append(piece);
+            written.chars(piece.length());
+            JSONArray parts = delta.optJSONArray("tool_calls");
+            for ( int j = 0 ; parts != null && j < parts.length() ; j++ ) {
+              JSONObject part  = parts.getJSONObject(j);
+              int        index = part.optInt("index");
+              JSONObject fn    = part.optJSONObject("function");
+              JSONObject call  = calls.computeIfAbsent(index, k -> new JSONObject()
+                .put("type", "function").put("function", new JSONObject()));
+              if ( part.has("id") && ! part.isNull("id") ) call.put("id", part.getString("id"));
+              if ( fn != null && fn.has("name") && ! fn.isNull("name") ) call.getJSONObject("function").put("name", fn.getString("name"));
+              String args = fn == null || fn.isNull("arguments") ? "" : fn.optString("arguments", "");
+              arguments.computeIfAbsent(index, k -> new StringBuilder()).append(args);
+              written.chars(args.length());
+            }
           }
-
-          BufferedReader reader = new BufferedReader(
-            new InputStreamReader(conn.getInputStream(), "UTF-8"));
-          StringBuilder sb = new StringBuilder();
-          String line;
-          while ( ( line = reader.readLine() ) != null ) sb.append(line);
-          reader.close();
-
-          return parseReply(new JSONObject(sb.toString()));
-        } catch ( RuntimeException e ) {
-          throw e;
-        } catch ( Exception e ) {
-          throw new RuntimeException("OpenAI API request failed: " + e.getMessage(), e);
-        } finally {
-          if ( conn != null ) conn.disconnect();
+          if ( chunk.optJSONObject("usage") != null ) usage = chunk.getJSONObject("usage");
         }
+        throw new IOException("The reply stream ended before [DONE]");
       `
     }
   ]

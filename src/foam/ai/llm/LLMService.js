@@ -157,6 +157,16 @@ foam.CLASS({
       class: 'Enum',
       of: 'foam.ai.llm.LLMThinking',
       name: 'thinking'
+    },
+    {
+      class: 'String',
+      name: 'sessionId',
+      documentation: 'Groups the calls of one user session, for a gateway that reports usage per session.'
+    },
+    {
+      class: 'String',
+      name: 'agentName',
+      documentation: 'What asked, e.g. intelligent-intake/parse, for a gateway that reports usage per feature.'
     }
   ]
 });
@@ -249,6 +259,25 @@ foam.CLASS({
       of: 'foam.ai.llm.LLMToolUse',
       name: 'toolUses',
       documentation: 'The calls the model asked for; stopReason is then tool_use.'
+    }
+  ]
+});
+
+
+foam.INTERFACE({
+  package: 'foam.ai.llm',
+  name: 'LLMProgress',
+
+  documentation: `
+    Told how much of a reply the model has written while it streams in, so a long call
+    can show progress instead of waiting in silence. A provider finds it in the context
+    under "llmProgress".
+  `,
+
+  methods: [
+    {
+      name: 'written',
+      args: 'int tokens'
     }
   ]
 });

@@ -8,10 +8,10 @@ foam.CLASS({
   package: 'foam.core.ai.llm.provider',
   name: 'ClaudeLLMService',
 
-  implements: [ 'foam.ai.llm.LLMService' ],
+  extends: 'foam.core.ai.llm.provider.AbstractHTTPLLMService',
 
   documentation: `
-    Anthropic Claude implementation of LLMService.
+    Anthropic Claude implementation of LLMService, on the Messages API.
     API key is injected via CSpec config — never exposed to client.
     Server-side only (Java).
   `,
@@ -25,10 +25,11 @@ foam.CLASS({
     'java.util.ArrayList',
     'java.util.List',
     'java.io.BufferedReader',
-    'java.io.InputStreamReader',
-    'java.io.OutputStream',
-    'java.net.HttpURLConnection',
-    'java.net.URL',
+    'java.io.IOException',
+    'java.util.HashMap',
+    'java.util.LinkedHashMap',
+    'java.util.Map',
+    'java.util.TreeMap',
     'org.json.JSONArray',
     'org.json.JSONObject'
   ],
@@ -42,7 +43,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'apiKey',
-      javaFactory: `
+      documentation: 'Read from the credential on every call, so a key rotated in the vault is used on the next one.',
+      javaGetter: `
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find(getCredentialId());
         if ( cred == null ) throw new RuntimeException("LLM credential not found: " + getCredentialId());
@@ -50,12 +52,10 @@ foam.CLASS({
       `
     },
     {
-      class: 'String',
       name: 'defaultModel',
       value: 'claude-sonnet-4-20250514'
     },
     {
-      class: 'String',
       name: 'baseURL',
       value: 'https://api.anthropic.com/v1/messages'
     },
@@ -68,24 +68,6 @@ foam.CLASS({
 
   methods: [
     {
-      name: 'complete',
-      javaCode: `
-        JSONArray messages = new JSONArray();
-        JSONObject msg = new JSONObject();
-        msg.put("role", "user");
-        msg.put("content", request.getPrompt());
-        messages.put(msg);
-
-        return doRequest(x, messages, request.getOptions());
-      `
-    },
-    {
-      name: 'chat',
-      javaCode: `
-        return doRequest(x, apiMessages(request.getMessages()), request.getOptions());
-      `
-    },
-    {
       name: 'apiMessages',
       documentation: `
         The conversation in Anthropic's format. An assistant turn that called tools carries
@@ -95,8 +77,9 @@ foam.CLASS({
         results is added.
       `,
       type: 'Object',
-      args: 'foam.ai.llm.ChatMessage[] messages',
+      args: 'String systemPrompt, foam.ai.llm.ChatMessage[] messages',
       javaCode: `
+        // the system prompt goes in the body, not among the messages (requestBody)
         JSONArray     out     = new JSONArray();
         LLMToolUse[]  pending = null;
         for ( ChatMessage m : messages ) {
@@ -177,6 +160,8 @@ foam.CLASS({
         body.put("model",      model);
         body.put("max_tokens", maxTokens);
         body.put("messages",   (JSONArray) messages);
+        // a long reply takes minutes: streamed, the caller hears how far it has got
+        body.put("stream",     true);
 
         if ( options.getTemperature() > 0 ) {
           body.put("temperature", options.getTemperature());
@@ -258,56 +243,75 @@ foam.CLASS({
       `
     },
     {
-      name: 'doRequest',
-      visibility: 'protected',
-      type: 'foam.ai.llm.LLMResponse',
-      args: 'Context x, Object messages, LLMOptions options',
+      name: 'providerHeaders',
       javaCode: `
-        JSONObject body = (JSONObject) requestBody(messages, options);
-
-        // HTTP request
-        HttpURLConnection conn = null;
-        try {
-          URL url = new URL(getBaseURL());
-          conn = (HttpURLConnection) url.openConnection();
-          conn.setRequestMethod("POST");
-          conn.setRequestProperty("Content-Type",      "application/json");
-          conn.setRequestProperty("x-api-key",         getApiKey());
-          conn.setRequestProperty("anthropic-version",  getApiVersion());
-          conn.setDoOutput(true);
-
-          try ( OutputStream os = conn.getOutputStream() ) {
-            os.write(body.toString().getBytes("UTF-8"));
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("x-api-key",         getApiKey());
+        headers.put("anthropic-version", getApiVersion());
+        return headers;
+      `
+    },
+    {
+      name: 'readStream',
+      documentation: `
+        Rebuilds the message from its server-sent events. Each content block arrives as a
+        start event, deltas and a stop event carrying the block's index; a tool_use block's
+        input arrives as pieces of JSON text, such as '{"cit' then 'y":"Rabat"}', parsed when
+        the block stops. An error before any block, such as overloaded_error, throws
+        EarlyStreamError, which is retried; after content it fails the call. A stream that
+        ends before message_stop, as when the connection drops, throws.
+      `,
+      javaCode: `
+        Written    written = new Written(progress);
+        JSONObject message = new JSONObject();
+        Map<Integer, JSONObject>                 blocks = new TreeMap<>();
+        Map<Integer, Map<String, StringBuilder>> pieces = new HashMap<>();
+        for ( String data ; ( data = nextData(in) ) != null ; ) {
+          JSONObject event = object(data);
+          String     type  = event.optString("type");
+          int        index = event.optInt("index");
+          if ( "message_start".equals(type) && event.optJSONObject("message") != null ) {
+            message = event.getJSONObject("message");
+          } else if ( "content_block_start".equals(type) && event.optJSONObject("content_block") != null ) {
+            blocks.put(index, event.getJSONObject("content_block"));
+          } else if ( "content_block_delta".equals(type) && event.optJSONObject("delta") != null ) {
+            JSONObject delta = event.getJSONObject("delta");
+            String     kind  = delta.optString("type");
+            // text_delta carries "text", thinking_delta "thinking", signature_delta
+            // "signature"; input_json_delta carries "partial_json" for the block's input
+            boolean json  = "input_json_delta".equals(kind);
+            String  field = json ? "input" : kind.replace("_delta", "");
+            String  piece = delta.optString(json ? "partial_json" : field, "");
+            pieces.computeIfAbsent(index, k -> new LinkedHashMap<>()).computeIfAbsent(field, k -> new StringBuilder()).append(piece);
+            // only the reply itself counts as written, not the model's thinking
+            if ( json || "text".equals(field) ) written.chars(piece.length());
+          } else if ( "content_block_stop".equals(type) && blocks.containsKey(index) ) {
+            JSONObject block = blocks.get(index);
+            for ( Map.Entry<String, StringBuilder> p : pieces.getOrDefault(index, new HashMap<>()).entrySet() ) {
+              String value = p.getValue().toString();
+              block.put(p.getKey(), "input".equals(p.getKey()) ? object(value) : value);
+            }
+          } else if ( "message_delta".equals(type) ) {
+            JSONObject delta = event.optJSONObject("delta");
+            if ( delta != null && ! delta.isNull("stop_reason") ) message.put("stop_reason", delta.getString("stop_reason"));
+            JSONObject counts = event.optJSONObject("usage");
+            if ( counts != null ) {
+              // the final counts update the start's; one sent as null keeps the start's value
+              JSONObject usage = message.optJSONObject("usage");
+              if ( usage == null ) usage = new JSONObject();
+              for ( String key : counts.keySet() ) if ( ! counts.isNull(key) ) usage.put(key, counts.get(key));
+              message.put("usage", usage);
+            }
+          } else if ( "message_stop".equals(type) ) {
+            message.put("content", new JSONArray(blocks.values()));
+            return message;
+          } else if ( "error".equals(type) ) {
+            String error = "The reply stream reported an error: " + event.opt("error");
+            if ( blocks.isEmpty() ) throw new EarlyStreamError(error);
+            throw new IOException(error);
           }
-
-          int status = conn.getResponseCode();
-          if ( status != 200 ) {
-            BufferedReader err = new BufferedReader(
-              new InputStreamReader(conn.getErrorStream(), "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ( ( line = err.readLine() ) != null ) sb.append(line);
-            err.close();
-            throw new RuntimeException(
-              "Claude API error (" + status + "): " + sb.toString());
-          }
-
-          // Read response
-          BufferedReader reader = new BufferedReader(
-            new InputStreamReader(conn.getInputStream(), "UTF-8"));
-          StringBuilder sb = new StringBuilder();
-          String line;
-          while ( ( line = reader.readLine() ) != null ) sb.append(line);
-          reader.close();
-
-          return parseReply(new JSONObject(sb.toString()));
-        } catch ( RuntimeException e ) {
-          throw e;
-        } catch ( Exception e ) {
-          throw new RuntimeException("Claude API request failed: " + e.getMessage(), e);
-        } finally {
-          if ( conn != null ) conn.disconnect();
         }
+        throw new IOException("The reply stream ended before the reply was complete");
       `
     }
   ]
