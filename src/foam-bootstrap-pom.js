@@ -1,3 +1,13 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+// One of n pom files controlling foam model load boot order.
+//
+// Attempt to add additional files to a package scoped pom file
+
 foam.POM({
   name: "bootstrap",
 

@@ -4,6 +4,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// One of n pom files controlling foam model load boot order.
+//
+// Attempt to add additional files to a package scoped pom file
+
 foam.POM({
   name: "bootstrap-2",
 
