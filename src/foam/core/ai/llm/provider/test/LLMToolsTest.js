@@ -86,6 +86,10 @@ foam.CLASS({
         options.setThinking(LLMThinking.BETWEEN_TOOLS);
         expect(((JSONObject) claude.requestBody(cm, options)).getJSONObject("thinking").getString("type"), "between_tools", "claude: thinking only between tool calls");
 
+        test(! cb.has("fallbacks"), "claude: no fallbacks unless set");
+        claude.setFallbacks("default");
+        expect(((JSONObject) claude.requestBody(cm, options)).getString("fallbacks"), "default", "claude: fallbacks sent when set");
+
         LLMOptions plain = new LLMOptions();
         plain.setTemperature(0);
         JSONObject pb = (JSONObject) claude.requestBody(new JSONArray(), plain);

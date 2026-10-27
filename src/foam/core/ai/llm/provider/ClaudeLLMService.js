@@ -61,6 +61,15 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'fallbacks',
+      documentation: `
+        Sent as the request's fallbacks, e.g. "default": on a policy decline the API re-runs
+        the request on a fallback model inside the same call instead of stopping. Needs
+        the server-side-fallback beta in headers.
+      `
+    },
+    {
+      class: 'String',
       name: 'apiVersion',
       value: '2023-06-01'
     }
@@ -162,6 +171,7 @@ foam.CLASS({
         body.put("messages",   (JSONArray) messages);
         // a long reply takes minutes: streamed, the caller hears how far it has got
         body.put("stream",     true);
+        if ( ! SafetyUtil.isEmpty(getFallbacks()) ) body.put("fallbacks", getFallbacks());
 
         if ( options.getTemperature() > 0 ) {
           body.put("temperature", options.getTemperature());
