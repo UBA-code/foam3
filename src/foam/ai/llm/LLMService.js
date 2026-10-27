@@ -18,6 +18,82 @@ foam.ENUM({
 
 foam.CLASS({
   package: 'foam.ai.llm',
+  name: 'LLMTool',
+
+  documentation: `
+    A tool the model may call, e.g. { name: 'set_date_format', description: 'Read a date column
+    with one of the listed formats', inputSchema: '{"type":"object","properties":{...}}' }.
+    The provider sends it in its own format; the model answers with an LLMToolUse.
+  `,
+
+  properties: [
+    {
+      class: 'String',
+      name: 'name'
+    },
+    {
+      class: 'String',
+      name: 'description'
+    },
+    {
+      class: 'String',
+      name: 'inputSchema',
+      documentation: 'JSON Schema of the input, as JSON text. Empty means the tool takes no input.'
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.ai.llm',
+  name: 'LLMToolUse',
+
+  documentation: `
+    One call the model asked for. The caller runs it, sets result, and sends the assistant
+    message carrying it back in the next chat request; the provider turns each result into
+    the tool-result message the model expects before the next user text.
+  `,
+
+  properties: [
+    {
+      class: 'String',
+      name: 'id',
+      documentation: "The provider's id for this call, which its result must quote."
+    },
+    {
+      class: 'String',
+      name: 'name'
+    },
+    {
+      class: 'String',
+      name: 'inputJson',
+      documentation: 'The input the model chose, as JSON text, e.g. {"column":"settle_date","format":"YYMMDD"}.'
+    },
+    {
+      class: 'String',
+      name: 'result',
+      documentation: 'What running the call produced, written by the caller before the next request.'
+    }
+  ]
+});
+
+
+foam.ENUM({
+  package: 'foam.ai.llm',
+  name: 'LLMThinking',
+
+  documentation: 'Extended thinking. Providers without thinking ignore it.',
+
+  values: [
+    { name: 'DEFAULT',       label: 'Model default' },
+    { name: 'DISABLED',      label: 'Disabled' },
+    { name: 'BETWEEN_TOOLS', label: 'Only between tool calls', documentation: 'For models that cannot turn thinking off.' }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.ai.llm',
   name: 'ChatMessage',
 
   properties: [
@@ -30,6 +106,12 @@ foam.CLASS({
     {
       class: 'String',
       name: 'content'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.ai.llm.LLMToolUse',
+      name: 'toolUses',
+      documentation: 'On an ASSISTANT message, the calls the model made in that turn, each with its result.'
     }
   ]
 });
@@ -60,6 +142,21 @@ foam.CLASS({
     {
       class: 'String',
       name: 'systemPrompt'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.ai.llm.LLMTool',
+      name: 'tools'
+    },
+    {
+      class: 'Boolean',
+      name: 'webSearch',
+      documentation: 'Let the model search the web. Providers without a search tool ignore it.'
+    },
+    {
+      class: 'Enum',
+      of: 'foam.ai.llm.LLMThinking',
+      name: 'thinking'
     }
   ]
 });
@@ -135,8 +232,23 @@ foam.CLASS({
       name: 'outputTokens'
     },
     {
+      class: 'Int',
+      name: 'cacheReadTokens',
+      documentation: "Input tokens served from the provider's prompt cache, billed lower than inputTokens."
+    },
+    {
+      class: 'Int',
+      name: 'cacheWriteTokens'
+    },
+    {
       class: 'String',
       name: 'stopReason'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.ai.llm.LLMToolUse',
+      name: 'toolUses',
+      documentation: 'The calls the model asked for; stopReason is then tool_use.'
     }
   ]
 });
