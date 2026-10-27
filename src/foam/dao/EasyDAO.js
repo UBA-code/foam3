@@ -160,10 +160,6 @@ foam.CLASS({
 
         foam.dao.DAO delegate = getInnerDAO();
 
-        if ( getPostgres() ) {
-          delegate = getPostgresDAO(getX());
-        }
-
         if ( delegate == null ) {
           if ( getNullify() ) {
             delegate = new foam.dao.NullDAO(getX(), getOf());
@@ -1021,31 +1017,6 @@ dao loading, which improves overall startup time.`,
       `
     },
     {
-      name: 'getPostgresDAO',
-      args: 'X x',
-      type: 'DAO',
-      javaCode: `
-        try {
-          var jdbcSpec = x.get("JDBCConnectionSpec");
-          if ( jdbcSpec == null ) {
-            Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), "No JDBCConnectionSpec");
-            throw new RuntimeException("No JDBCConnectionSpec");
-          }
-
-          foam.dao.jdbc.JDBCPooledDataSource source = new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA");
-          X xcopy = x.put("JDBCDataSource", source);
-          var dao = new foam.dao.jdbc.PostgresDAO(xcopy, getOf());
-          return dao;
-        } catch (java.sql.SQLException e) {
-          Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), e);
-          throw new RuntimeException("Error creating PostgresDAO: " + getName() + ", " + e.getMessage());
-        } catch (ClassNotFoundException e) {
-          Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), e);
-          throw new RuntimeException("Error creating PostgresDAO: " + getName() + ", " + e.getMessage());
-        }
-      `
-    },
-    {
       name: 'getJournalDelegate',
       args: 'Context x, foam.dao.DAO delegate',
       type: 'foam.dao.DAO',
@@ -1433,10 +1404,6 @@ dao loading, which improves overall startup time.`,
       type: 'foam.dao.EasyDAO',
       args: 'String name, foam.lang.Indexer... indexers',
       javaCode: `
-        if ( ! getPostgres() ) {
-          ((Logger) getX().get("logger")).warning(getName(), "addTableIndex only works for postgres DAOs");
-          return this;
-        }
         AddIndexCommand cmd = new AddIndexCommand();
         cmd.setName(name);
         cmd.setIndexers(indexers);
