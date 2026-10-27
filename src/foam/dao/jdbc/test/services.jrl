@@ -21,7 +21,7 @@ p({
   "name":"testEmployeeDAO",
   "serve":false,
   "serviceScript":"""
-   jdbcSpec = x.get("threddJDBCConnectionSpec");
+    jdbcSpec = x.get("JDBCConnectionSpec");
     if ( jdbcSpec == null ) {
       foam.core.logger.StdoutLogger.instance().error("testEmployeeDAO,JDBCConnectionSpec not found");
       throw new RuntimeException("testEmployeeDAO,JDBCConnectionSpec not found");
@@ -31,7 +31,6 @@ p({
     postgresdao = new foam.dao.jdbc.PostgresDAO(x, foam.dao.jdbc.test.TestEmployee.getOwnClassInfo());
      return new foam.dao.EasyDAO.Builder(x)
       .setSeqNo(true)
-      .setPostgres(true)
       .setAuthorize(false)
       .setRuler(false)
       .setOf(foam.dao.jdbc.test.TestEmployee.getOwnClassInfo())
@@ -47,9 +46,16 @@ p({
   "name":"testCompanyDAO",
   "serve":false,
   "serviceScript":"""
+    jdbcSpec = x.get("JDBCConnectionSpec");
+    if ( jdbcSpec == null ) {
+      foam.core.logger.StdoutLogger.instance().error("testCompanyDAO,JDBCConnectionSpec not found");
+      throw new RuntimeException("testCompanyDAO,JDBCConnectionSpec not found");
+    }
+    x = x.put("JDBCConnectionSpec", jdbcSpec);
+    x = x.put("JDBCDataSource", new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA"));
+    postgresdao = new foam.dao.jdbc.PostgresDAO(x, foam.dao.jdbc.test.TestCompany.getOwnClassInfo());
     return new foam.dao.EasyDAO.Builder(x)
       .setSeqNo(true)
-      .setPostgres(true)
       .setAuthorize(false)
       .setRuler(false)
       .setOf(foam.dao.jdbc.test.TestCompany.getOwnClassInfo())
