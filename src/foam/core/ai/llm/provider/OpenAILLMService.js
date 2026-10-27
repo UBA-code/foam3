@@ -211,7 +211,10 @@ foam.CLASS({
         if ( usage != null ) {
           JSONObject details = usage.optJSONObject("prompt_tokens_details");
           int cached = details == null ? 0 : details.optInt("cached_tokens", 0);
-          response.setInputTokens(usage.optInt("prompt_tokens", 0) - cached);
+          int prompt = usage.optInt("prompt_tokens", 0);
+          // OpenAI's prompt_tokens includes the cached ones (120 with 100 cached is 20 input);
+          // some gateways in front of other models leave them out (21 with 1795 cached is 21)
+          response.setInputTokens(prompt >= cached ? prompt - cached : prompt);
           response.setCacheReadTokens(cached);
           response.setOutputTokens(usage.optInt("completion_tokens", 0));
         }
@@ -243,6 +246,7 @@ foam.CLASS({
         Map<Integer, StringBuilder> arguments = new HashMap<>();
         Object     finish = null;
         JSONObject usage  = null;
+        String     model  = null;
         for ( String data ; ( data = nextData(in) ) != null ; ) {
           if ( "[DONE]".equals(data) ) {
             JSONArray toolCalls = new JSONArray();
@@ -259,11 +263,13 @@ foam.CLASS({
             choice.put("message",       message);
             choice.put("finish_reason", finish == null ? JSONObject.NULL : finish);
             JSONObject reply = new JSONObject();
+            if ( model != null ) reply.put("model", model);
             reply.put("choices", new JSONArray().put(choice));
             if ( usage != null ) reply.put("usage", usage);
             return reply;
           }
           JSONObject chunk = object(data);
+          if ( model == null && chunk.has("model") && ! chunk.isNull("model") ) model = chunk.getString("model");
           if ( chunk.has("error") ) throw new IOException("The reply stream reported an error: " + chunk.opt("error"));
           JSONArray choices = chunk.optJSONArray("choices");
           for ( int i = 0 ; choices != null && i < choices.length() ; i++ ) {

@@ -100,11 +100,12 @@ foam.CLASS({
           + "{\\"type\\":\\"thinking\\",\\"thinking\\":\\"...\\"},"
           + "{\\"type\\":\\"text\\",\\"text\\":\\"I'll set it.\\"},"
           + "{\\"type\\":\\"tool_use\\",\\"id\\":\\"toolu_9\\",\\"name\\":\\"set_date_format\\",\\"input\\":{\\"column\\":\\"settle_date\\"}}],"
-          + "\\"usage\\":{\\"input_tokens\\":100,\\"output_tokens\\":20,\\"cache_read_input_tokens\\":50,\\"cache_creation_input_tokens\\":7}}"));
+          + "\\"usage\\":{\\"input_tokens\\":100,\\"output_tokens\\":20,\\"cache_read_input_tokens\\":50,\\"cache_creation_input_tokens\\":7,\\"server_tool_use\\":{\\"web_search_requests\\":2}}}"));
         expect(cr.getContent(), "I'll set it.", "claude reply: text only, thinking left out");
         test(cr.getToolUses().length == 1 && "toolu_9".equals(cr.getToolUses()[0].getId()), "claude reply: the tool call is read");
         expect(new JSONObject(cr.getToolUses()[0].getInputJson()).getString("column"), "settle_date", "claude reply: the call's input as JSON");
         test(cr.getCacheReadTokens() == 50 && cr.getCacheWriteTokens() == 7, "claude reply: cache tokens read");
+        test(cr.getWebSearches() == 2, "claude reply: the web searches that ran are counted");
 
         // chat completions: tool_calls on the assistant, a tool message per result
         JSONArray om = (JSONArray) openai.apiMessages(options.getSystemPrompt(), new ChatMessage[] { ask, called, thanks });
@@ -135,6 +136,9 @@ foam.CLASS({
         test(or.getToolUses().length == 1 && "run_preview".equals(or.getToolUses()[0].getName()), "openai reply: the tool call is read");
         expect(or.getStopReason(), "tool_use", "openai reply: the stop reason reads as from every provider");
         test(or.getInputTokens() == 20 && or.getCacheReadTokens() == 100, "openai reply: cached prompt tokens counted once, as cache reads");
+        LLMResponse gw = openai.parseReply(new JSONObject("{\\"choices\\":[{\\"message\\":{\\"content\\":\\"ok\\"}}],\\"usage\\":{\\"prompt_tokens\\":21,\\"completion_tokens\\":5,\\"prompt_tokens_details\\":{\\"cached_tokens\\":1795}}}"));
+        test(gw.getInputTokens() == 21 && gw.getCacheReadTokens() == 1795, "openai reply: a gateway whose prompt_tokens leaves out the cached ones is not charged negative input, got " + gw.getInputTokens());
+        test(gw.getWebSearches() == 0, "openai reply: no web search ran");
 
         test(cb.getBoolean("stream") && ob.getBoolean("stream") && ob.getJSONObject("stream_options").getBoolean("include_usage"),
           "both providers stream; chat completions asks for the usage chunk");
@@ -189,13 +193,14 @@ foam.CLASS({
         }
 
         JSONObject os = (JSONObject) openai.readStream(lines(
-          "data: {'choices':[{'delta':{'role':'assistant','content':'On it'}}]}",
+          "data: {'model':'bedrock:sonnet','choices':[{'delta':{'role':'assistant','content':'On it'}}]}",
           "data: {'choices':[{'delta':{'tool_calls':[{'index':0,'id':'c1','function':{'name':'run_preview','arguments':'{\\\\'ro'}}]}}]}",
           "data: {'choices':[{'delta':{'tool_calls':[{'index':0,'function':{'arguments':'ws\\\\':5}'}}]},'finish_reason':'tool_calls'}]}",
           "data: {'choices':[],'usage':{'prompt_tokens':10,'completion_tokens':4}}",
           "data: [DONE]"), null);
         LLMResponse osr = openai.parseReply(os);
         expect(osr.getContent(), "On it", "openai stream: text rebuilt");
+        expect(osr.getModel(), "bedrock:sonnet", "openai stream: the model that answered is kept");
         test(osr.getToolUses().length == 1 && new JSONObject(osr.getToolUses()[0].getInputJson()).getInt("rows") == 5, "openai stream: tool call joined from its pieces");
         test(osr.getInputTokens() == 10 && osr.getOutputTokens() == 4, "openai stream: usage chunk read");
         try {
