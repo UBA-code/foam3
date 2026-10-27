@@ -855,7 +855,7 @@ foam.CLASS({
     'window',
     'showNav',
     'isMenuOpen',
-    'llmService as parentLLMService'
+    'llmService'
   ],
 
   constants: [
@@ -876,7 +876,7 @@ foam.CLASS({
     'findFlowChildByName',
     'flowChildren',
     'history_',
-    'llmService',
+    'consoleLLMService',
     'localScope',
     'log',
     'mementoMgr',
@@ -966,9 +966,17 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'llmService',
+      name: 'consoleLLMService',
+      documentation: `
+        The console's own conversation with the model: the agent and llm
+        commands share it, so a follow-up question sees the earlier ones. It
+        is exported under its own name and not as llmService, because every
+        call through it carries the whole history: a block that makes its own
+        self-contained calls, such as a file intake screen, would otherwise
+        send each earlier request again with every new one.
+      `,
       factory: function() {
-        return this.ConversationalLLMService.create({delegate: this.parentLLMService});
+        return this.ConversationalLLMService.create({delegate: this.llmService});
       }
     },
     {
