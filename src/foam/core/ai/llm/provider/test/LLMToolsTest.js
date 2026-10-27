@@ -16,8 +16,11 @@ foam.CLASS({
 
   javaImports: [
     'foam.ai.llm.*',
+    'foam.core.ai.llm.provider.AbstractHTTPLLMService',
     'foam.core.ai.llm.provider.ClaudeLLMService',
     'foam.core.ai.llm.provider.OpenAILLMService',
+    'java.io.BufferedReader',
+    'java.io.StringReader',
     'org.json.JSONArray',
     'org.json.JSONObject'
   ],
@@ -53,7 +56,7 @@ foam.CLASS({
         ChatMessage thanks = message(ChatRole.USER, "Thanks", null);
 
         // Claude: tool_use on the assistant turn, tool_result opening the next user turn
-        JSONArray cm = (JSONArray) claude.apiMessages(new ChatMessage[] { ask, called, thanks });
+        JSONArray cm = (JSONArray) claude.apiMessages("", new ChatMessage[] { ask, called, thanks });
         test(cm.length() == 3, "claude: three turns, got " + cm);
         expect(cm.getJSONObject(0).getString("content"), "Read settle_date as yymmdd", "claude: plain text stays a string");
         JSONObject toolUse = cm.getJSONObject(1).getJSONArray("content").getJSONObject(0);
@@ -64,7 +67,7 @@ foam.CLASS({
         expect(userBlocks.getJSONObject(0).getString("tool_use_id"), "call_1", "claude: the result quotes the call's id");
         expect(userBlocks.getJSONObject(1).getString("text"), "Thanks", "claude: the user's text follows the result");
 
-        JSONArray endsOnCall = (JSONArray) claude.apiMessages(new ChatMessage[] { ask, called });
+        JSONArray endsOnCall = (JSONArray) claude.apiMessages("", new ChatMessage[] { ask, called });
         test(endsOnCall.length() == 3 && "user".equals(endsOnCall.getJSONObject(2).getString("role"))
           && endsOnCall.getJSONObject(2).getJSONArray("content").length() == 1,
           "claude: a conversation ending on a call gets a user turn holding only its result: " + endsOnCall);
@@ -128,6 +131,91 @@ foam.CLASS({
         test(or.getToolUses().length == 1 && "run_preview".equals(or.getToolUses()[0].getName()), "openai reply: the tool call is read");
         expect(or.getStopReason(), "tool_use", "openai reply: the stop reason reads as from every provider");
         test(or.getInputTokens() == 20 && or.getCacheReadTokens() == 100, "openai reply: cached prompt tokens counted once, as cache reads");
+
+        test(cb.getBoolean("stream") && ob.getBoolean("stream") && ob.getJSONObject("stream_options").getBoolean("include_usage"),
+          "both providers stream; chat completions asks for the usage chunk");
+
+        // streams rebuilt into the reply a call without streaming returns
+        int[] reported = { 0 };
+        LLMProgress progress = tokens -> reported[0] = tokens;
+        JSONObject cs = (JSONObject) claude.readStream(lines(
+          "event: message_start",
+          "data: {'type':'message_start','message':{'model':'m','usage':{'input_tokens':30,'output_tokens':1}}}",
+          "data: {'type':'content_block_start','index':0,'content_block':{'type':'thinking','thinking':''}}",
+          "data: {'type':'content_block_delta','index':0,'delta':{'type':'thinking_delta','thinking':'hmm'}}",
+          "data: {'type':'content_block_stop','index':0}",
+          "data:",
+          "data: {'type':'content_block_start','index':1,'content_block':{'type':'text','text':''}}",
+          "data: {'type':'content_block_delta','index':1,'delta':{'type':'text_delta','text':'Setting the format.'}}",
+          "data: {'type':'content_block_stop','index':1}",
+          "data: {'type':'content_block_start','index':2,'content_block':{'type':'tool_use','id':'t1','name':'set_date_format','input':{}}}",
+          "data: {'type':'content_block_delta','index':2,'delta':{'type':'input_json_delta','partial_json':'{\\\\'col'}}",
+          "data: {'type':'content_block_delta','index':2,'delta':{'type':'input_json_delta','partial_json':'umn\\\\':\\\\'settle_date\\\\'}'}}",
+          "data: {'type':'content_block_stop','index':2}",
+          "data: {'type':'message_delta','delta':{'stop_reason':'tool_use'},'usage':{'input_tokens':null,'output_tokens':42}}",
+          "data: {'type':'message_stop'}"), progress);
+        LLMResponse sr = claude.parseReply(cs);
+        expect(sr.getContent(), "Setting the format.", "claude stream: text rebuilt, thinking left out");
+        expect(new JSONObject(sr.getToolUses()[0].getInputJson()).getString("column"), "settle_date", "claude stream: tool input joined from its pieces");
+        test(sr.getInputTokens() == 30 && sr.getOutputTokens() == 42, "claude stream: a count sent as null keeps the start's value");
+        expect(sr.getStopReason(), "tool_use", "claude stream: stop reason");
+        test(reported[0] > 0, "claude stream: progress reported, " + reported[0] + " tokens");
+
+        try {
+          claude.readStream(lines("data: {'type':'error','error':{'type':'overloaded_error'}}"), null);
+          test(false, "claude stream: an early error throws");
+        } catch (AbstractHTTPLLMService.EarlyStreamError e) {
+          test(true, "claude stream: an error before any content is retryable");
+        }
+        try {
+          claude.readStream(lines(
+            "data: {'type':'content_block_start','index':0,'content_block':{'type':'text','text':''}}",
+            "data: {'type':'error','error':{'type':'overloaded_error'}}"), null);
+          test(false, "claude stream: a late error throws");
+        } catch (AbstractHTTPLLMService.EarlyStreamError e) {
+          test(false, "claude stream: an error after content is not retried");
+        } catch (java.io.IOException e) {
+          test(true, "claude stream: an error after content fails the call");
+        }
+        try {
+          claude.readStream(lines("data: {'type':'message_start','message':{}}"), null);
+          test(false, "claude stream: a cut stream throws");
+        } catch (java.io.IOException e) {
+          test(true, "claude stream: a stream that ends before message_stop throws");
+        }
+
+        JSONObject os = (JSONObject) openai.readStream(lines(
+          "data: {'choices':[{'delta':{'role':'assistant','content':'On it'}}]}",
+          "data: {'choices':[{'delta':{'tool_calls':[{'index':0,'id':'c1','function':{'name':'run_preview','arguments':'{\\\\'ro'}}]}}]}",
+          "data: {'choices':[{'delta':{'tool_calls':[{'index':0,'function':{'arguments':'ws\\\\':5}'}}]},'finish_reason':'tool_calls'}]}",
+          "data: {'choices':[],'usage':{'prompt_tokens':10,'completion_tokens':4}}",
+          "data: [DONE]"), null);
+        LLMResponse osr = openai.parseReply(os);
+        expect(osr.getContent(), "On it", "openai stream: text rebuilt");
+        test(osr.getToolUses().length == 1 && new JSONObject(osr.getToolUses()[0].getInputJson()).getInt("rows") == 5, "openai stream: tool call joined from its pieces");
+        test(osr.getInputTokens() == 10 && osr.getOutputTokens() == 4, "openai stream: usage chunk read");
+        try {
+          openai.readStream(lines("data: {'choices':[{'delta':{'content':'x'}}]}"), null);
+          test(false, "openai stream: a cut stream throws");
+        } catch (java.io.IOException e) {
+          test(true, "openai stream: a stream that ends before [DONE] throws");
+        }
+
+        // retries
+        test(claude.retryable(429) && claude.retryable(529) && claude.retryable(503) && ! claude.retryable(400) && ! claude.retryable(401), "429, 529 and 503 are retried; 400 and 401 are not");
+        expect(claude.backoff(0, "7"), 7000L, "retry-after in seconds is honoured");
+        expect(claude.backoff(0, "600"), 60000L, "retry-after is capped at 60 s");
+        test(claude.backoff(2, null) >= 4000 && claude.backoff(2, null) < 4500, "third attempt waits about 4 s");
+        expect(claude.backoff(10, null), 30000L, "backoff is capped at 30 s");
+      `
+    },
+    {
+      name: 'lines',
+      type: 'java.io.BufferedReader',
+      args: 'String... lines',
+      javaCode: `
+        // fixtures write ' for " so they need no escaping
+        return new BufferedReader(new StringReader((String.join("\\n", lines) + "\\n").replace('\\'', '"')));
       `
     },
     {
