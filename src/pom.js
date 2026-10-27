@@ -89,7 +89,6 @@ foam.POM({
     { name: "foam/graphics/TreeNodeConfig",                           flags: "web" },
     { name: "foam/graphics/ScrollCView",                              flags: "web" },
     { name: "foam/physics/PhysicalCircle",                            flags: "web" },
-    ,
     { name: "lib/net",                                                flags: "web" },
     { name: "lib/netNode",                                            flags: "node" },
     { name: "lib/node/json_dao",                                      flags: "node" },
