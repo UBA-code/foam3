@@ -35,7 +35,6 @@ foam.POM({
     'com.vladsch.flexmark:flexmark-all:0.64.8',
     'commons-codec:commons-codec:1.18.0',
     'commons-io:commons-io:2.14.0',
-    'commons-lang:commons-lang:2.6',
     'jakarta.mail:jakarta.mail-api:2.1.2',
     'jakarta.activation:jakarta.activation-api:2.1.2',
     'jakarta.json:jakarta.json-api:2.1.3',
