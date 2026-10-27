@@ -71,11 +71,12 @@ foam.POM({
     'org.jsoup:jsoup:1.23.2', // HTML Parser
     'org.postgresql:postgresql:42.7.12',
     'nl.martijndwars:web-push:5.1.1 -org.asynchttpclient:async-http-client -org.bitbucket.b_c:jose4j', // https://github.com/web-push-libs/webpush-java
-    'org.asynchttpclient:async-http-client:2.15.0',
+    'org.asynchttpclient:async-http-client:2.15.0 -io.netty', // its netty modules come from the pinned versions below
     'org.bitbucket.b_c:jose4j:0.9.6',
     'com.eatthepath:fast-uuid:0.2.0',
     'com.eatthepath:pushy:0.15.4 -io.netty:netty-codec-http2 -io.netty:netty-handler-proxy -io.netty:netty-resolver-dns',
     'io.netty:netty-codec:4.1.136.Final',
+    'io.netty:netty-codec-socks:4.1.136.Final',
     'io.netty:netty-codec-http:4.1.136.Final',
     'io.netty:netty-codec-http2:4.1.136.Final',
     'io.netty:netty-handler:4.1.136.Final',
