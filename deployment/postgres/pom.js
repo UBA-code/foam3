@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2026 The FOAM Authors. All Rights Reserved.A
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
