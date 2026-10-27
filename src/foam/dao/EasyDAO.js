@@ -406,10 +406,6 @@ foam.CLASS({
       `
     },
     {
-      class: 'Boolean',
-      name: 'postgres'
-    },
-    {
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'innerDAO'
@@ -1396,25 +1392,6 @@ dao loading, which improves overall startup time.`,
       }
 
       return this.getOuterDAO(dao);
-    },
-
-    /** Only relevant if using postgresdao */
-    {
-      name: 'addTableIndex',
-      type: 'foam.dao.EasyDAO',
-      args: 'String name, foam.lang.Indexer... indexers',
-      javaCode: `
-        AddIndexCommand cmd = new AddIndexCommand();
-        cmd.setName(name);
-        cmd.setIndexers(indexers);
-        Object result = getDelegate().cmd_(getX(), cmd);
-        if ( result == null ||
-            ! ( result instanceof Boolean ) ||
-            ((Boolean) result).booleanValue() != true ) {
-          ((Logger) getX().get("logger")).warning(getName(), "Index not added due to invalid indexers or other error", Arrays.toString(indexers));
-        }
-        return this;
-      `
     },
     /** Only relevant if cache is true or if daoType
        was set to MDAO, but harmless otherwise. Generates an index
