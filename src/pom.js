@@ -213,6 +213,7 @@ foam.POM({
     { name: "foam/test/TestUtils",                                    flags: "test" },
     { name: "foam/test/AddressUtilTests",                             flags: "test" },
     { name: "foam/lang/DirectAgency" },
+    { name: "foam/dao/jdbc/IndexedPreparedStatement" },
     { name: "foam/lang/AbstractLongPropertyInfo" },
     { name: "foam/lang/AbstractBooleanPropertyInfo" },
     { name: "foam/lang/SingletonFactory" },

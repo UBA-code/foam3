@@ -17,8 +17,7 @@ foam.POM({
     { name: 'src/foam/u2/wizard/pom' },
     { name: 'src/foam/u2/address/pom' },
     { name: 'src/io/c9/ace/pom' },
-    { name: 'webroot/pom' },
-    { name: 'src/foam/dao/jdbc/pom' },
+    { name: 'webroot/pom' }
   ],
   copy: [
     { source: 'webroot', targetDir: 'webroot' }
@@ -42,9 +41,7 @@ foam.POM({
     'javax.ws.rs:javax.ws.rs-api:2.1.1',
     'jstl:jstl:1.2',
     'org.apache-extras.beanshell:bsh:2.0b6',
-    'org.apache.commons:commons-dbcp2:2.0.1 -xml-apis:xml-apis -xerces:xerces',
     'org.apache.commons:commons-lang3:3.12.0',
-    'org.apache.commons:commons-pool2:2.6.2',
     'org.apache.commons:commons-text:1.10.0',
     'org.apache.pdfbox:pdfbox:2.0.27',
     'org.apache.xmlgraphics:batik-codec:1.17',
@@ -70,7 +67,6 @@ foam.POM({
     'org.eclipse.jetty.http2:jetty-http2-server:12.1.14',
     'org.eclipse.parsson:parsson:1.1.7',
     'org.jsoup:jsoup:1.23.2', // HTML Parser
-    'org.postgresql:postgresql:42.7.12',
     'nl.martijndwars:web-push:5.1.1 -org.asynchttpclient:async-http-client -org.bitbucket.b_c:jose4j', // https://github.com/web-push-libs/webpush-java
     'org.asynchttpclient:async-http-client:2.15.0',
     'org.bitbucket.b_c:jose4j:0.9.6',
