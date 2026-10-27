@@ -39,7 +39,7 @@ foam.POM({
     'jakarta.json:jakarta.json-api:2.1.3',
     'javax.ws.rs:javax.ws.rs-api:2.1.1',
     'org.apache-extras.beanshell:bsh:2.0b6',
-    'org.apache.commons:commons-lang3:3.12.0',
+    'org.apache.commons:commons-lang3:3.21.0',
     'org.apache.commons:commons-text:1.10.0',
     'org.apache.pdfbox:pdfbox:2.0.37',
     'org.apache.xmlgraphics:batik-codec:1.20',
