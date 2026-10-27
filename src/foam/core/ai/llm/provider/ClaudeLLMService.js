@@ -248,6 +248,8 @@ foam.CLASS({
           response.setOutputTokens(usage.optInt("output_tokens", 0));
           response.setCacheReadTokens(usage.optInt("cache_read_input_tokens", 0));
           response.setCacheWriteTokens(usage.optInt("cache_creation_input_tokens", 0));
+          JSONObject server = usage.optJSONObject("server_tool_use");
+          if ( server != null ) response.setWebSearches(server.optInt("web_search_requests", 0));
         }
         return response;
       `

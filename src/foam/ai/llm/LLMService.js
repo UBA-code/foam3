@@ -251,6 +251,13 @@ foam.CLASS({
       name: 'cacheWriteTokens'
     },
     {
+      class: 'Int',
+      name: 'webSearches',
+      documentation: `Web searches the model ran for this reply. 0 when webSearch was asked
+        for but the provider has no search tool, so the caller can say the answer came from
+        the model's own knowledge.`
+    },
+    {
       class: 'String',
       name: 'stopReason'
     },
