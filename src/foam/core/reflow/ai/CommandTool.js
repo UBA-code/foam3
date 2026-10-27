@@ -11,7 +11,7 @@ foam.CLASS({
   documentation: `
     Lets an AI agent run Reflow commands through one tool, execute_command, instead of a
     tool per action written into each agent. The agent's commands are the rows of
-    commandDAO its predicate matches, e.g. ids starting with "intake."; commandDAO only
+    commandDAO its predicate matches, e.g. ids starting with "report."; commandDAO only
     returns the ones the user may read (command.read.<id>), so the agent can never do
     more than its user.
 
@@ -20,7 +20,7 @@ foam.CLASS({
     its commands. The model's text is never evaluated. A command marked confirm runs
     only after askConfirm resolves true.
 
-      var tool = CommandTool.create({ predicate: STARTS_WITH(Command.ID, 'intake.'), commandX: x });
+      var tool = CommandTool.create({ predicate: STARTS_WITH(Command.ID, 'report.'), commandX: x });
       request.tools = [ await tool.tool() ];
       use.result    = await tool.run(use);   // for each LLMToolUse in the reply
   `,
