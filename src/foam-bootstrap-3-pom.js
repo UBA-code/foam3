@@ -21,7 +21,7 @@ foam.POM({
 
   files: [
     { name: "foam/lang/PropertyInfo",               flags: "js|java" },
-    { name: "foam/lang/Fluent",                     flags: "js|java" },
+    { name: "foam/lang/Fluent",                     flags: "js" },
     { name: "foam/memento/MementoMgr",              flags: "js" },
     { name: "foam/web/DetachedURLState",            flags: "web" },
     { name: "foam/web/URLState",                    flags: "web" },

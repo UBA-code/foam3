@@ -19,7 +19,6 @@ foam.POM({
     { name: "StoragePropertyPredicate",             flags: "js|java" },
     { name: "StorageTransientPropertyPredicate",    flags: "js|java" },
     { name: "formatter/test/JSONFObjectFormatterParserTest", flags: "js&test|java&test"},
-    { name: "lib/node/json_dao",                    flags: "node" },
     { name: "xml/OutputXML",                        flags: "js|java" }
   ],
 

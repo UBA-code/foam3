@@ -6,9 +6,6 @@
 
 foam.POM({
   name: "u2",
-  // copy: [
-  //   { source: 'images', target: 'images' }
-  // ],
 
   files: [
     { name: "ModalOverlay",                                       flags: "web" },

@@ -49,8 +49,6 @@ foam.POM({
   ],
 
   files: [
-    { name: "foam/version/VersionedClass",                            flags: "js" },
-    { name: "foam/version/VersionedClassFactory",                     flags: "js" },
     { name: "foam/physics/Physical",                                  flags: "js" },
     { name: "foam/physics/Collider",                                  flags: "js" },
     { name: "foam/physics/PhysicsEngine",                             flags: "js" },
@@ -92,9 +90,9 @@ foam.POM({
     { name: "foam/graphics/ScrollCView",                              flags: "web" },
     { name: "foam/physics/PhysicalCircle",                            flags: "web" },
     ,
-    // where are these?
     { name: "lib/net",                                                flags: "web" },
     { name: "lib/netNode",                                            flags: "node" },
+    { name: "lib/node/json_dao",                                      flags: "node" },
     { name: "foam/net/RetryHTTPRequest",                              flags: "js" },
     { name: "foam/net/auth/TokenBearerCredential",                    flags: "js" },
     { name: "foam/net/auth/AuthAwareHTTPRequest",                     flags: "js" },
