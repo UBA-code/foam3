@@ -59,6 +59,7 @@ p({
       .setAuthorize(false)
       .setRuler(false)
       .setOf(foam.dao.jdbc.test.TestCompany.getOwnClassInfo())
+      .setInnerDAO(postgresdao)
       .build();
   """
 })
