@@ -40,7 +40,7 @@ FOAM automatically selects appropriate views based on property type. This refere
 | TextArea | Multi-line input |
 | ChoiceView | Selection from list |
 | RadioView | Few mutually exclusive options |
-| RichTextField | HTML/formatted text |
+| RichTextView | HTML/formatted text |
 
 <example id="string-views">
 foam.CLASS({
@@ -101,8 +101,8 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'stringWithRichTextField',
-      view: 'foam.u2.view.RichTextField'
+      name: 'stringWithRichTextView',
+      view: 'foam.u2.view.RichTextView'
     },
     {
       class: 'String',
@@ -288,8 +288,8 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'booleanWithToggle',
-      view: 'foam.u2.view.Toggle'
+      name: 'booleanWithSwitch',
+      view: 'foam.u2.Switch'
     }
   ]
 });
