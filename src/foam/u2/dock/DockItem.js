@@ -73,6 +73,14 @@ foam.INTERFACE({
         and does not notify while it is set.`
     },
     {
+      class: 'foam.u2.ViewSpec',
+      name: 'cardView',
+      documentation: `The item's own card, for an item that wants its look and
+        actions in the Dock, e.g. an agent's face and an End button. Created
+        with the item as data, in place of the Dock's plain card; the Dock
+        still stacks, collapses and hides it. Unset, the plain card shows.`
+    },
+    {
       class: 'Boolean',
       name: 'openable',
       documentation: 'Whether a click on the card calls open().'
