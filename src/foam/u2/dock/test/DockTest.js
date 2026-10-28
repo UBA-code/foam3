@@ -11,7 +11,8 @@ foam.CLASS({
 
   requires: [
     'foam.u2.dock.Dock',
-    'foam.u2.dock.test.TestDockItem'
+    'foam.u2.dock.test.TestDockItem',
+    'foam.u2.dock.test.TestDockView'
   ],
 
   methods: [
@@ -52,6 +53,14 @@ foam.CLASS({
       dock.undock(load);
       load.running = false;
       x.test(notified.length === 1, 'an undocked item no longer notifies');
+
+      var view = this.TestDockView.create({ title: 'Panel', running: true, cardHidden: true }, subX);
+      dock.dock(view);
+      x.test(added.indexOf(view) != -1, 'an item that is a view is added to the app shell when it docks');
+      view.statusMsg = 'Done';
+      view.running   = false;
+      x.test(notified.length === 1, 'an item whose own view shows (cardHidden) does not notify');
+      dock.undock(view);
 
       dock.collapsed_ = true;
       dock.undock(agent);

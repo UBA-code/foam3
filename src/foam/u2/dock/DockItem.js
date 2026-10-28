@@ -17,6 +17,10 @@ foam.INTERFACE({
       item.statusMsg = 'Saving this format';
       item.startTime = new Date();   // the card counts up from here: "2:10"
       item.running   = false;        // finished: the Dock tells the user once
+
+    An item that is itself a view, such as an agent's panel, is added to the
+    app shell when it docks, so it exists only once something docked it and
+    then outlives the screen that started it.
   `,
 
   properties: [
@@ -60,6 +64,13 @@ foam.INTERFACE({
       documentation: `True while leaving or reloading the page would lose this
         item's work, e.g. an agent whose model calls run in this browser. The
         Dock asks the user before the page unloads.`
+    },
+    {
+      class: 'Boolean',
+      name: 'cardHidden',
+      documentation: `True while the item's own view is showing, e.g. an agent's
+        chat is open, so its card would only repeat it. The Dock hides the card
+        and does not notify while it is set.`
     },
     {
       class: 'Boolean',
