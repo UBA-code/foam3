@@ -43,14 +43,15 @@ foam.CLASS({
         watcher.pollInterval = 100;
         subX = subX.createSubContext({ partitionLoadWatcher: watcher });
 
-        // Delegate that resolves after 750ms -- slower than showDelay 400ms,
-        // with enough margin past the 500/600/700ms checkpoints below that
+        // Delegate that resolves after 1500ms -- slower than showDelay 400ms,
+        // with enough margin past the 500/600/700ms checkpoints below, even
+        // when a loaded test browser runs the timers late, that
         // the settle-triggered unwatch can't race them.
         var slow = this.PromisedDAO.create({
           promise: new Promise(function(resolve) {
             setTimeout(function() {
               resolve(foam.dao.MDAO.create({ of: foam.core.partition.PartitionLoadStatus }, subX));
-            }, 750);
+            }, 1500);
           })
         }, subX);
 
@@ -68,7 +69,7 @@ foam.CLASS({
         x.test(dock.items.length === 1 && dock.items[0].title === 'svcA' && dock.items[0].progress === 40,
             'active status row docked as a card at 40%');
 
-        // Fast op mid-flight (slow op still pending until 750ms): must never
+        // Fast op mid-flight (slow op still pending until 1500ms): must never
         // watch, and must not disturb the slow op's existing watch refcount.
         var fast = this.PartitionLoadProgressDAO.create({
           delegate: this.MDAO.create({ of: this.PartitionLoadStatus }, subX),
