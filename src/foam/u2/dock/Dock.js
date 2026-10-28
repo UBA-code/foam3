@@ -18,6 +18,11 @@ foam.CLASS({
       dock.dock(item);     // card appears; the Dock adds itself to ctrl on first use
       dock.undock(item);   // card goes
 
+    An item that is a view (a foam.u2.Element) is added to ctrl too when it
+    docks, so a screen can start work that keeps its own view, such as an
+    agent's panel, and the view stays after the screen goes. The item hides
+    its card with cardHidden while that view shows.
+
     The collapse control shrinks every card to a pill holding its percent or
     its running time; the next item to dock after the stack empties opens
     expanded again. A click on an openable card calls item.open(). When an
@@ -193,7 +198,7 @@ foam.CLASS({
       if ( this.items.indexOf(item) != -1 ) return;
       var self = this;
       this.subs_[item.$UID] = item.running$.sub(function() {
-        if ( ! item.running && self.items.indexOf(item) != -1 ) self.notify_(item.title + ': ' + item.statusMsg);
+        if ( ! item.running && ! item.cardHidden && self.items.indexOf(item) != -1 ) self.notify_(item.title + ': ' + item.statusMsg);
         self.updateTimer_();
       });
       this.items = this.items.concat([ item ]);
@@ -207,6 +212,7 @@ foam.CLASS({
         this.attached_ = true;
         c.add(this);
       }
+      if ( c && foam.u2.Element.isInstance(item) && ! item.element_ ) c.add(item);
     },
 
     // Like ctrl, notify is exported by ApplicationController's subcontext, a
@@ -268,6 +274,15 @@ foam.CLASS({
       }));
     },
 
+    // A card hides while the stack is collapsed to pills, and while the
+    // item's own view shows.
+    function cardHidden_(el, item) {
+      return el.onDetach(this.ExpressionSlot.create({
+        args: [ this.collapsed_$, item.cardHidden$ ],
+        code: function(collapsed, cardHidden) { return collapsed || cardHidden; }
+      }));
+    },
+
     function renderToggle(self) {
       this.start('button').addClass(self.myClass('toggle')).
         attrs({
@@ -296,7 +311,7 @@ foam.CLASS({
     function renderCard(self, item) {
       this.start().addClass(self.myClass('card')).
         enableClass(self.myClass('openable'), item.openable$).
-        hide(self.collapsed_$).
+        hide(self.cardHidden_(this, item)).
         on('click', function() { if ( item.openable ) item.open(); }).
         start().addClass(self.myClass('header')).
           start().addClass('p-sm', 'p-bold', self.myClass('name')).
@@ -333,6 +348,7 @@ foam.CLASS({
           this.start().addClass(self.myClass('pills')).show(self.collapsed_$).
             forEach(items, function(item) {
               this.start('button').addClass(self.myClass('pill')).
+                hide(item.cardHidden$).
                 attrs({
                   'aria-label':    self.SHOW_STATUS,
                   'aria-expanded': false,

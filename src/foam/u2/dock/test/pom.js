@@ -8,6 +8,7 @@ foam.POM({
   name: 'dock-test',
   files: [
     { name: 'TestDockItem', flags: 'js' },
+    { name: 'TestDockView', flags: 'js' },
     { name: 'DockTest',     flags: 'js|java' }
   ]
 });
