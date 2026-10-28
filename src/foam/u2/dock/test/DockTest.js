@@ -61,6 +61,7 @@ foam.CLASS({
       view.running   = false;
       x.test(notified.length === 1, 'an item whose own view shows (cardHidden) does not notify');
       dock.undock(view);
+      x.test(! view.element_ || ! view.element_.isConnected, 'an undocked view leaves the app shell');
 
       dock.collapsed_ = true;
       dock.undock(agent);
