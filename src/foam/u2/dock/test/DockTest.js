@@ -63,6 +63,9 @@ foam.CLASS({
       dock.undock(view);
       x.test(! view.element_ || ! view.element_.isConnected, 'an undocked view leaves the app shell');
 
+      var line = dock.statusText(foam.u2.Element.create(null, subX), this.TestDockItem.create({ statusMsg: 'Reading' }, subX));
+      x.test(line.get() === 'Reading', 'statusText shows the status alone when the item has no running time, got ' + line.get());
+
       dock.collapsed_ = true;
       dock.undock(agent);
       x.test(dock.items.length === 0 && ! dock.collapsed_, 'the dock opens expanded again once it empties');

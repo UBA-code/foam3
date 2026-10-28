@@ -21,7 +21,8 @@ foam.CLASS({
     An item that is a view (a foam.u2.Element) is added to ctrl too when it
     docks, so a screen can start work that keeps its own view, such as an
     agent's panel, and the view stays after the screen goes. The item hides
-    its card with cardHidden while that view shows.
+    its card with cardHidden while that view shows, and can draw its own card
+    with cardView.
 
     The collapse control shrinks every card to a pill holding its percent or
     its running time; the next item to dock after the stack empties opens
@@ -252,7 +253,10 @@ foam.CLASS({
       return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     },
 
-    function statusText_(el, item) {
+    // The item's statusMsg with how long it has run, e.g. "Saving this
+    // format · 2:10", as a slot owned by el. Public so a cardView shows the
+    // same line as the plain card.
+    function statusText(el, item) {
       var self = this;
       // Owned by the element, not the Dock: the Dock outlives every card, so
       // slots parented to it would pile up and be notified on every tick.
@@ -312,6 +316,12 @@ foam.CLASS({
     },
 
     function renderCard(self, item) {
+      if ( item.cardView ) {
+        this.start().hide(self.cardHidden_(this, item)).
+          tag(item.cardView, { data: item }).
+        end();
+        return;
+      }
       this.start().addClass(self.myClass('card')).
         enableClass(self.myClass('openable'), item.openable$).
         hide(self.cardHidden_(this, item)).
@@ -325,7 +335,7 @@ foam.CLASS({
         end().
         call(self.renderBar, [self, item]).
         start().addClass('p-sm', self.myClass('status')).
-          add(self.statusText_(this, item)).
+          add(self.statusText(this, item)).
         end().
       end();
     },
