@@ -193,7 +193,7 @@ foam.CLASS({
       if ( this.items.indexOf(item) != -1 ) return;
       var self = this;
       this.subs_[item.$UID] = item.running$.sub(function() {
-        if ( ! item.running && self.items.indexOf(item) != -1 ) self.notify?.(item.title + ': ' + item.statusMsg);
+        if ( ! item.running && self.items.indexOf(item) != -1 ) self.notify_(item.title + ': ' + item.statusMsg);
         self.updateTimer_();
       });
       this.items = this.items.concat([ item ]);
@@ -207,6 +207,14 @@ foam.CLASS({
         this.attached_ = true;
         c.add(this);
       }
+    },
+
+    // Like ctrl, notify is exported by ApplicationController's subcontext, a
+    // child of the client context this service is created in, so the import
+    // resolves undefined in the app; fall back to the application's global.
+    function notify_(msg) {
+      if ( this.notify ) return this.notify(msg);
+      globalThis.ctrl?.notify?.(msg);
     },
 
     function undock(item) {
