@@ -166,7 +166,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'agentName',
-      documentation: 'What asked, e.g. intelligent-intake/parse, for a gateway that reports usage per feature.'
+      documentation: 'What asked, e.g. report/summarize, for a gateway that reports usage per feature.'
     }
   ]
 });
