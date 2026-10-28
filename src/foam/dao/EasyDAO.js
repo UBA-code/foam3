@@ -60,6 +60,7 @@ foam.CLASS({
     },
     'foam.dao.MDAO',
     'foam.dao.OrderedDAO',
+    'foam.dao.PollingResetDAO',
     'foam.dao.PromisedDAO',
     'foam.dao.QueryCachingDAO',
     'foam.dao.TTLCachingDAO',
@@ -485,7 +486,7 @@ foam.CLASS({
       value: true
     },
     {
-      documentation: 'Set polling interval for the caching DAO',
+      documentation: 'Set polling interval for the caching DAO. Without a cache, open views re-read the DAO at this interval.',
       class: 'Int',
       name: 'pollingInterval',
       units: 'ms',
@@ -1237,6 +1238,11 @@ dao loading, which improves overall startup time.`,
               });
             }
           }
+        } else if ( this.pollingInterval > 0 ) {
+          dao = this.PollingResetDAO.create({
+            delegate: dao,
+            pollingInterval: this.pollingInterval
+          });
         }
       }
 
