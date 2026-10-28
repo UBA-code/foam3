@@ -212,7 +212,8 @@ foam.CLASS({
         this.attached_ = true;
         c.add(this);
       }
-      if ( c && foam.u2.Element.isInstance(item) && ! item.element_ ) c.add(item);
+      // a view item joins the app shell once, unless it is already on the page
+      if ( c && foam.u2.Element.isInstance(item) && ! item.element_?.isConnected ) c.add(item);
     },
 
     // Like ctrl, notify is exported by ApplicationController's subcontext, a
