@@ -1,0 +1,77 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+foam.INTERFACE({
+  package: 'foam.u2.dock',
+  name: 'DockItem',
+
+  documentation: `
+    Anything shown in the Dock while the user works elsewhere in the app: an
+    agent reading a file, a long export, a partition loading. The Dock draws
+    one card per item from these properties and follows them as they change,
+    so an item only keeps its own state up to date:
+
+      item.statusMsg = 'Saving this format';
+      item.startTime = new Date();   // the card counts up from here: "2:10"
+      item.running   = false;        // finished: the Dock tells the user once
+  `,
+
+  properties: [
+    {
+      class: 'String',
+      name: 'title',
+      documentation: 'What the item is, as the card heads it, e.g. a service name or an agent.'
+    },
+    {
+      class: 'String',
+      name: 'statusMsg',
+      documentation: 'What the item is doing right now, the line under the title.'
+    },
+    {
+      class: 'Boolean',
+      name: 'running',
+      documentation: `True while the item is working. When it turns false the
+        Dock notifies the user with the title and statusMsg, so a result is
+        seen even when the item's own view is closed.`
+    },
+    {
+      class: 'Boolean',
+      name: 'showProgress',
+      documentation: 'Whether the card shows a progress bar.'
+    },
+    {
+      class: 'Int',
+      name: 'progress',
+      value: -1,
+      documentation: `Percent done, 0 to 100, for the progress bar. -1 when no
+        honest percent exists: the bar then runs without a value.`
+    },
+    {
+      class: 'DateTime',
+      name: 'startTime',
+      documentation: 'When the current work started; set it and the card shows how long it has run.'
+    },
+    {
+      class: 'Boolean',
+      name: 'holdsPage',
+      documentation: `True while leaving or reloading the page would lose this
+        item's work, e.g. an agent whose model calls run in this browser. The
+        Dock asks the user before the page unloads.`
+    },
+    {
+      class: 'Boolean',
+      name: 'openable',
+      documentation: 'Whether a click on the card calls open().'
+    }
+  ],
+
+  methods: [
+    {
+      name: 'open',
+      documentation: 'Shows the item\'s own view again, e.g. an agent\'s chat. Called on a click on an openable card.'
+    }
+  ]
+});
