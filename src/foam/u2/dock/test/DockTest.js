@@ -30,8 +30,11 @@ foam.CLASS({
 
       dock.dock(agent);
       dock.dock(agent);
+      var seen = 0;
+      dock.items$.sub(function() { seen++; });
       dock.dock(load);
       x.test(dock.items.length === 2, 'docking the same item twice shows one card');
+      x.test(seen === 1, 'a change to the docked items reaches the Dock\'s listeners, which redraw the cards');
       x.test(added.length === 1 && added[0] === dock, 'the dock adds itself to ctrl once, on the first item');
       x.test(!! dock.timer_, 'the running time counts while a running item has a startTime');
 
