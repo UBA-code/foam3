@@ -16,7 +16,7 @@ foam.CLASS({
     follows them.
 
       dock.dock(item);     // card appears; the Dock adds itself to ctrl on first use
-      dock.undock(item);   // card goes
+      dock.undock(item);   // card goes, and a view item leaves the app shell
 
     An item that is a view (a foam.u2.Element) is added to ctrl too when it
     docks, so a screen can start work that keeps its own view, such as an
@@ -228,6 +228,8 @@ foam.CLASS({
       this.subs_[item.$UID]?.detach();
       delete this.subs_[item.$UID];
       this.items = this.items.filter(function(i) { return i !== item; });
+      // A view docking added itself to the app shell, so leaving takes it out
+      if ( foam.u2.Element.isInstance(item) && item.element_ ) item.remove();
       // The next item opens expanded, whatever the user chose for these.
       if ( ! this.items.length ) this.collapsed_ = false;
       this.updateTimer_();
