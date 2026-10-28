@@ -10,7 +10,12 @@ A catalogue of FOAM UI components, organized by the component rather than by the
 
 ## Overview
 
-Most components are <term term="View"></term>s: they have a `data` property and can be named in a property's `view:` spec. Others are containers, borders or dialogs that wrap arbitrary content and are used from `render()` with `start(...)` / `tag(...)`.
+Every FOAM UI component is a u2 <term term="Element"></term>: a FOAM object that builds and manages one DOM node and its children. Components fall into two groups.
+
+- A <term term="View"></term> displays or edits a value. It has a `data` property, and when it is used for a property of an <term term="FObject"></term>, `data` is bound to that property's value so that changes flow both ways. A view is chosen with the property's `view:` option, which takes a <term term="ViewSpec"></term>.
+- A container (a border, layout, tab strip or dialog) has no `data` of its own. It wraps whatever content is added to it, and is used from code with `start(...)`, `tag(...)` or `add(...)`.
+
+Most views also respond to the current <term term="DisplayMode"></term>: the same view renders as an editable input in `RW` mode and as plain text in `RO` mode, which is how one model can serve both an edit form and a read-only page.
 
 | Category | Components |
 |----------|------------|
@@ -34,7 +39,7 @@ Most components are <term term="View"></term>s: they have a `data` property and 
 
 ### Using a Component
 
-A component can be used in three ways:
+A component can be used in three ways. The first form is a ViewSpec: either a class name as a string, or an object whose `class` names the component and whose other keys set its properties.
 
 | Where | How |
 |-------|-----|
@@ -270,7 +275,9 @@ add(foam.u2.DetailView.create({ data: ToggleComponents.create() }));
 
 ## Choosers
 
-Choosers take a list of `choices`. Each choice is either a value, or a `[value, label]` pair.
+A chooser lets the user pick from a fixed set of options instead of typing a value. Choosers take a list of `choices`. Each choice is either a plain value, which is used as its own label, or a `[value, label]` pair, where `value` is what gets stored in the property and `label` is what the user sees. For example, `['CA', 'Canada']` stores `'CA'` but shows "Canada".
+
+Some choosers read their options from a <term term="DAO"></term> instead of a fixed list, so the options stay current as rows are added or removed. ReferenceView and RichChoiceView work this way.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -346,7 +353,9 @@ add(foam.u2.DetailView.create({ data: ChooserComponents.create() }));
 
 ### ReferenceView
 
-<term term="ReferenceView"></term> fills a ChoiceView from the DAO named by the property's `targetDAOKey`.
+A <term term="Reference"></term> property stores only the `id` of an object that lives in another DAO, much like a foreign key in a database. <term term="ReferenceView"></term> is its default view: it fills a ChoiceView with the objects in the DAO named by the property's `targetDAOKey`, and labels each option with the object's `toSummary()`.
+
+The DAO is found by name in the <term term="Context"></term>, so the example below `exports` `countryDAO` to make it visible to the view.
 
 <example id="reference-view">
 foam.CLASS({
@@ -570,7 +579,11 @@ add(foam.u2.DetailView.create({ data: CollectionComponents.create() }));
 
 ## Object Views
 
-These views show a whole FObject rather than a single value.
+These views show a whole FObject rather than a single value. They read the object's model to decide which properties to show, in what order, with which labels and views, so they need no per-model code.
+
+Properties can be grouped with a <term term="Section"></term>: a named group declared in the model's `sections:` list and referenced from each property's `section:` option. DetailView ignores sections; SectionedDetailView, TabbedDetailView and VerticalDetailView use them to lay out the groups.
+
+A <term term="Citation"></term> is a short, one-line summary of an object, built from its `toSummary()`. It is used where a full DetailView would take too much space, such as in a list or as the collapsed state of CollapseableDetailView.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -625,7 +638,13 @@ add(foam.u2.view.ComparisonView.create({
 
 ## DAO Views
 
-These views take a DAO as `data` and show its rows.
+A <term term="DAO"></term> (Data Access Object) is FOAM's standard interface to a collection of objects of one class. Every DAO supports the same operations, whatever its storage: `put` to add or update an object, `remove`, `find` by id, and `select` to read many objects, optionally narrowed with `where`, `orderBy` and `limit`. A DAO can hold its data in memory, in the browser, on the server, or in a remote service, and the views below work with all of them.
+
+The examples use an <term term="EasyDAO"></term>, a convenience class that builds a DAO from a few options. `daoType: 'MDAO'` keeps the data in an indexed in-memory store, `seqNo: true` assigns ids 1, 2, 3 to new objects, and `testData` loads the starting rows.
+
+DAO views take a DAO as `data` and show its rows. They listen to the DAO, so a `put` or `remove` from anywhere else in the application updates the view without a reload. They also read only the rows they display, so a TableView over a large server-side DAO fetches one screen of rows at a time rather than the whole collection.
+
+`select()` is asynchronous: it returns a Promise for a <term term="Sink"></term>, an object that receives the selected rows. The CarouselView example uses the default `ArraySink`, whose `array` property holds the rows.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -675,7 +694,9 @@ employeeDAO.select().then(function(sink) {
 
 ## Composite Views
 
-Composite views wrap other views. They are how one property gets several views at once, or a different view per mode.
+Composite views wrap other views. They are how one property gets several views at once, or a different view per mode. All the inner views share the composite's `data`, so dragging the slider in a MultiView immediately updates the text field beside it.
+
+Composites build on the existing components instead of replacing them, so prefer one over writing a new view class. ModeAltView is the usual answer when the read-only display of a value should look nothing like its editor, such as rendered HTML when read and a TextArea of source when edited.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -758,6 +779,8 @@ add(foam.u2.DetailView.create({ data: CompositeComponents.create() }));
 
 ## Actions and Links
 
+An <term term="Action"></term> is a method declared in a model's `actions:` list, together with how to present it: a label, an icon, and the conditions under which it is available (`isAvailable`) or enabled (`isEnabled`). Those conditions name properties as arguments, so in the example below RESET greys out automatically whenever `clicks` is 0. DetailView shows a model's actions as buttons along the bottom.
+
 <term term="ActionView"></term> (`foam.u2.ActionView`) is the button that renders an Action. Its look is set by `buttonStyle` (a `foam.u2.ButtonStyle`: `PRIMARY`, `SECONDARY`, `TERTIARY`, `TEXT`, `LINK`, `UNSTYLED`) and `size` (`SMALL`, `MEDIUM`, `LARGE`). The style can be set on the action itself or on the view.
 
 | Component | Class | Purpose |
@@ -807,6 +830,9 @@ foam.CLASS({
 var actions = ActionComponents.create();
 add(foam.u2.DetailView.create({ data: actions }));
 
+// Adding an Action to an element renders it as a button. The button runs the
+// action against the context's `data`, so startContext({ data: actions }) is
+// what tells the PRIMARY and RESET buttons which object to act on.
 start('h3').add('Actions placed individually').end();
 start().
   startContext({ data: actions }).
@@ -822,6 +848,10 @@ tag(foam.u2.Label, { label: 'A label with text only' });
 ---
 
 ## Layout
+
+Layout components arrange their children; they add no visible decoration of their own. Rows and Cols cover most needs. Grid is for forms and dashboards that must reflow on narrow screens: each GUnit claims a number of the grid's 12 columns, and units wrap to the next line when a row is full, so two `columns: 6` units sit side by side and a third starts a new row.
+
+Tabs show one child at a time. Each child must be a `foam.u2.Tab`, whose `label` becomes the tab's heading; the Tab with `selected: true` is shown first.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -880,7 +910,9 @@ end();
 
 ## Borders
 
-A <term term="Border"></term> wraps whatever content is added to it. Borders do not take `data`; they decorate their children.
+A <term term="Border"></term> wraps whatever content is added to it. Borders do not take `data`; they decorate their children. Content added to a border with `add()` or `start()` goes inside the border's frame rather than beside it, because the border redirects its children into an inner element, its `content`.
+
+Use a border to change how something looks or behaves without changing the thing itself: the same DetailView can appear plain, in a card, under a title, or inside a scrolling area just by changing the border around it. MultiBorder stacks several borders when one is not enough.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -940,6 +972,8 @@ start(foam.u2.borders.MultiBorder, {
 
 ## Feedback
 
+Feedback components tell the user what is happening: that work is in progress, which step they are on, or that something succeeded or failed. They show status in place, in the page. For a message that needs the user's attention before they continue, use a dialog instead.
+
 | Component | Class | Purpose |
 |-----------|-------|---------|
 | LoadingSpinner | `foam.u2.LoadingSpinner` | Spinning indicator; `showText` / `text` add a caption |
@@ -984,7 +1018,9 @@ end();
 | StyledModal | `foam.u2.dialog.StyledModal` | Popup with a `title`, `modalStyle` color bar and an action row |
 | ConfirmationModal | `foam.u2.dialog.ConfirmationModal` | StyledModal with a `primaryAction` and a cancel button |
 
-Call `open()` to show a dialog. A dialog closes itself when the user clicks outside it or on the close icon.
+A dialog is built like any other element (create it, then `add()` content) and shown by calling `open()`, which places it over the whole page. It closes when the user clicks outside it, on the close icon, or on one of its actions.
+
+Create a dialog with the action's context, `X`, as the second argument to `create()`. The context carries the services the dialog's content may need, such as DAOs and the `notify` function, and gives the dialog's buttons a `closeDialog` function to call.
 
 <example id="dialogs">
 foam.CLASS({
@@ -1038,7 +1074,9 @@ add(foam.u2.DetailView.create({ data: DialogDemo.create() }));
 
 ## Graphics
 
-`foam.graphics` components draw on a `<canvas>` instead of building HTML. A <term term="CView"></term> is the base class; shapes are CViews and can be nested with `add()`. A CView can be added to any u2 element.
+`foam.graphics` components draw on a `<canvas>` instead of building HTML. A <term term="CView"></term> (canvas view) is the base class; shapes are CViews and can be nested with `add()`. A child's `x` and `y` are relative to its parent, so moving or rotating a parent moves everything inside it. Adding a CView to a u2 element creates the `<canvas>` for it.
+
+CView properties are ordinary FOAM properties, so they can be bound and animated: binding a Circle's `radius$` to a RangeView's `data$` resizes the circle as the slider moves. Use graphics for custom drawing, simulations and diagrams. For forms and tables, use the HTML components above.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
@@ -1116,7 +1154,19 @@ add(canvas);
 - [FOAM CSS Tokens By Example](be:CSSTokens) — Styling components
 
 <glossary>
+  <def term="Element" definition="A FOAM object that builds and manages one DOM node and its children. The base class of every u2 component."></def>
   <def term="View" definition="A u2 Element with a data property that displays or edits a value. Can be named in a property's view: spec."></def>
+  <def term="FObject" definition="An instance of a FOAM class. Its properties carry the metadata (type, label, view) that generic views such as DetailView read."></def>
+  <def term="ViewSpec" definition="How a view is specified: a class name string, an object with a class key plus property values, or a function returning either."></def>
+  <def term="DisplayMode" definition="Whether a view is editable (RW), read-only (RO), greyed out (DISABLED) or not shown (HIDDEN)."></def>
+  <def term="Context" definition="FOAM's dependency-injection scope. Services such as DAOs are exported into a context and imported by name by the views created in it."></def>
+  <def term="DAO" definition="Data Access Object: FOAM's standard interface to a collection of objects of one class, with put, remove, find and select, whatever the storage."></def>
+  <def term="EasyDAO" definition="Convenience class that builds a DAO and its common decorators (sequence numbers, caching, test data) from a few options."></def>
+  <def term="Sink" definition="An object that receives the results of a DAO select, one object at a time. ArraySink collects them into an array."></def>
+  <def term="Reference" definition="Property type storing the id of an object held in another DAO, like a foreign key."></def>
+  <def term="Section" definition="A named group of properties declared in a model's sections list. Sectioned detail views lay out each group separately."></def>
+  <def term="Citation" definition="A short one-line summary of an object, built from its toSummary() method."></def>
+  <def term="Action" definition="A method declared in a model's actions list, with a label, icon and availability rules. Rendered as a button by ActionView."></def>
   <def term="Border" definition="A u2 Element that wraps and decorates whatever content is added to it."></def>
   <def term="TextField" definition="Single-line text input. Default view for String properties."></def>
   <def term="TextArea" definition="Multi-line text input with rows and cols."></def>
