@@ -7,6 +7,7 @@
 package foam.lang;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import foam.util.SafetyUtil;
 
 public class ClassInfoImpl
@@ -14,12 +15,17 @@ public class ClassInfoImpl
 {
   protected List      axioms;
   protected String    id;
-  protected HashMap   axiomsByName_                   = new HashMap();
-  protected HashMap   axiomsByNameOrShortName_        = null;
-  protected HashMap   axiomsByNameOrShortNameOrAlias_ = null;
+  // Shared by every thread using the class, and written after construction
+  // (getAxiomByName caches parent axioms, getAxiomsByClass caches lists), so
+  // they must be concurrent: concurrent puts on a HashMap can drop entries
+  // that were already there, such as a class's own properties.
+  protected Map       axiomsByName_                   = new ConcurrentHashMap();
+  protected Map       axiomMap_                       = new ConcurrentHashMap();
+  // Built lazily: filled in a local and published once complete.
+  protected volatile HashMap axiomsByNameOrShortName_        = null;
+  protected volatile HashMap axiomsByNameOrShortNameOrAlias_ = null;
+  protected volatile List    allAxioms_                      = null;
   protected ClassInfo parent_                         = null;
-  protected List      allAxioms_                      = null;
-  protected HashMap   axiomMap_                       = new HashMap();
   protected Class     class_;
 
   public ClassInfoImpl() {
@@ -104,7 +110,7 @@ public class ClassInfoImpl
 
   public List getAxioms() {
     if ( allAxioms_ == null ) {
-      allAxioms_ = new ArrayList() {
+      List all = new ArrayList() {
         HashSet<String> keys = new HashSet<>();
 
         @Override
@@ -127,14 +133,16 @@ public class ClassInfoImpl
         }
       };
 
-      allAxioms_.addAll(axioms);
-      allAxioms_.addAll(getParent().getAxioms());
+      all.addAll(axioms);
+      all.addAll(getParent().getAxioms());
+      allAxioms_ = all;
     }
 
     return allAxioms_;
   }
 
   public Object getAxiomByName(String name) {
+    if ( name == null ) return null;
     Object ret = axiomsByName_.get(name);
     if ( ret == null ) {
       ret = getParent().getAxiomByName(name);
@@ -147,20 +155,22 @@ public class ClassInfoImpl
 
   public Object getAxiomByNameOrShortName(String name) {
     if ( axiomsByNameOrShortName_ == null ) {
-      axiomsByNameOrShortName_ = new HashMap();
+      HashMap map = new HashMap();
 
       for ( Object o : axioms ) {
         Axiom a = (Axiom) o;
 
-        axiomsByNameOrShortName_.put(a.getName(), a);
+        map.put(a.getName(), a);
 
         if ( a instanceof PropertyInfo ) {
           PropertyInfo p = (PropertyInfo) a;
           if ( ! SafetyUtil.isEmpty(p.getShortName()) ) {
-            axiomsByNameOrShortName_.put(p.getShortName(), a);
+            map.put(p.getShortName(), a);
           }
         }
       }
+
+      axiomsByNameOrShortName_ = map;
     }
 
     Object ret = axiomsByNameOrShortName_.get(name);
@@ -172,26 +182,28 @@ public class ClassInfoImpl
   }
   public Object getAxiomByNameOrShortNameOrAlias(String name) {
     if ( axiomsByNameOrShortNameOrAlias_ == null ) {
-      axiomsByNameOrShortNameOrAlias_ = new HashMap();
+      HashMap map = new HashMap();
 
       for ( Object o : axioms ) {
         Axiom a = (Axiom) o;
 
-        axiomsByNameOrShortNameOrAlias_.put(a.getName(), a);
+        map.put(a.getName(), a);
 
         if ( a instanceof PropertyInfo ) {
           PropertyInfo p = (PropertyInfo) a;
           if ( ! SafetyUtil.isEmpty(p.getShortName()) ) {
-            axiomsByNameOrShortNameOrAlias_.put(p.getShortName(), a);
+            map.put(p.getShortName(), a);
           }
           String[] aliases = p.getAliases();
           if ( aliases != null && aliases.length > 0 ) {
             for ( String alias : aliases ) {
-              axiomsByNameOrShortNameOrAlias_.put(alias, a);
+              map.put(alias, a);
             }
           }
         }
       }
+
+      axiomsByNameOrShortNameOrAlias_ = map;
     }
 
     Object ret = axiomsByNameOrShortNameOrAlias_.get(name);
