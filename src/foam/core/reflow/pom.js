@@ -133,6 +133,7 @@ foam.POM({
     { name: 'cmd/MQLHelp',             flags: 'js|java' },
     { name: 'cmd/Models',              flags: 'js|java' },
     { name: 'cmd/Quote',               flags: 'js|java' },
+    { name: 'cmd/Include',             flags: 'js|java' },
     { name: 'cmd/Load',                flags: 'js|java' },
     { name: 'cmd/LoadPerf',            flags: 'js|java' },
     { name: 'cmd/Save',                flags: 'js|java' },
