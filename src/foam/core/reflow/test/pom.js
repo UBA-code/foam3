@@ -12,6 +12,12 @@ foam.POM({
     { name: 'DependencyScannerTest', flags: 'js&test|java&test' },
     { name: 'FlowHistoryRuleActionTest', flags: 'js&test|java&test' },
     { name: 'FlowScriptShapeTest', flags: 'js&test|java&test' },
+<<<<<<< Updated upstream
     { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' }
+=======
+    { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' },
+    { name: 'CommandToolTest', flags: 'js&test|java&test' },
+    { name: 'MappingAScriptTest', flags: 'js&test|java&test' }
+>>>>>>> Stashed changes
   ]
 });
