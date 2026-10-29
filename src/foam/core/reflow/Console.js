@@ -727,7 +727,6 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: true,
-      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
     },
     {
@@ -849,14 +848,14 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'isMenuOpen',
+    'llmService as parentLLMService',
     'notify',
     'params',
     'setTimeout',
-    'toolbarControlDAO',
-    'window',
     'showNav',
-    'isMenuOpen',
-    'llmService as parentLLMService'
+    'toolbarControlDAO',
+    'window'
   ],
 
   constants: [
@@ -1387,7 +1386,6 @@ foam.CLASS({
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
 
-      this.isMenuOpen = false;
       this.onDetach(() => {
         this.showNav = true;
         this.isMenuOpen = oldIsMenuOpen;

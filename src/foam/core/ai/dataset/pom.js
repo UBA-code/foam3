@@ -7,11 +7,14 @@
 foam.POM({
   name: 'dataset',
   files: [
-    { name: 'AlpacaSample',          flags: 'js|java' },
-    { name: 'DatasetGenerator',      flags: 'js|java' },
-    { name: 'FoamDatasetGenerator',  flags: 'js|java' }
+    { name: 'AlpacaSample',    flags: 'js|java' },
+    { name: 'DataCrawler',     flags: 'js|java' },
+    { name: 'AbstractFileCrawler',    flags: 'js|java' },
+    { name: 'AbstractDatasetGenerator', flags: 'js|java' },
+    { name: 'FileCrawler',                    flags: 'js' },
+    { name: 'AlpacaSampleDedupeRuleAction',   flags: 'js|java' }
   ],
   javaFiles: [
-    { name: 'FoamDatasetGeneratorImpl' }
+    { name: 'FileCrawler' }
   ]
 });

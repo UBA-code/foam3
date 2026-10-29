@@ -359,7 +359,7 @@ foam.CLASS({
 
         function heading(v) {
           let level = v[0].length, text = v[2];
-          return function() { this.start().addClass('h' + level + '00', 'mdHeader').add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
+          return function() { this.start('H' + level).add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
         },
 
         function codeBlock(v) {

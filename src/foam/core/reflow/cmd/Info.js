@@ -39,7 +39,7 @@ Flow:            ${flow.name || 'Untitled'} v${flow.version || ''}
 Hostname:        ${health.hostname}
 Application:     ${health.appName}
 Version:         ${health.version}
-Address:         ${this.window.location.origin}
+Address:         ${x.window.location.origin}
 Port:            ${health.port}
 Processors:      ${health.availableProcessors}
 Runtime:         ${health.runtime}

@@ -976,10 +976,11 @@ foam.CLASS({
         // When the wizard opened past step 0 (existing record), hide Previous on the
         // first reachable step so it can't return to the locked initial step.
         if ( lockInitialStep && currentStepIndex <= 1 ) return false;
-        return wizardType == 'DEFAULT' && ! isPastWizard;
+        return wizardType == 'DEFAULT' && ! isPastWizard &&
+          this.wizardSteps[this.currentStepIndex].transitions?.includes(this.wizardSteps[this.currentStepIndex-1]?.name);
       },
       isEnabled: function(currentStepIndex, isLoading, lockInitialStep) {
-        return ! isLoading && currentStepIndex > ( lockInitialStep ? 1 : 0 );
+        return ! isLoading;
       },
       code: async function() {
         var prevFsmValue = this.getPreviousFSMValue();
