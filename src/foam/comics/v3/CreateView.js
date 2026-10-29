@@ -86,7 +86,7 @@ foam.CLASS({
         }
         return enabled;
       },
-      toolTipFn: function(data$errors_) {
+      toolTip: function(data$errors_) {
         let hasErrors = !! data$errors_;
         if ( hasErrors ) {
           function printErrors(errors_) {

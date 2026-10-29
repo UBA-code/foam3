@@ -158,13 +158,7 @@ foam.CLASS({
 
   methods: [
     function render() {
-
-      if ( this.action.toolTipFn ) {
-        let toolTip$ = this.action.createToolTip$(this.__context__, this.data);
-        this.tooltip$.follow(toolTip$);
-      } else {
-        this.tooltip$.follow(this.action.toolTip$);
-      }
+      this.tooltip$.follow(this.action.createToolTip$(this.__context__, this.data));
 
       this.SUPER();
 
