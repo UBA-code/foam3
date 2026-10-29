@@ -121,6 +121,7 @@ foam.CLASS({
       background: $backgroundInverseSecondary;
       border-radius: 5px;
       color: $white;
+      white-space: pre-line;
       padding: 5px 8px;
       position: absolute;
       z-index: 2000;
@@ -132,15 +133,7 @@ foam.CLASS({
       this.SUPER();
       this
         .show(this.data$)
-        .add(this.slot(function(data) {
-          // If data is a string, treat as HTML. If DOM node, add directly.
-          if ( typeof data === 'string' ) {
-            var span = this.E('span');
-            span.element_.innerHTML = data;
-            return span;
-          }
-          return data;
-        }))
+        .add(this.data)
         .addClass()
     }
   ]
