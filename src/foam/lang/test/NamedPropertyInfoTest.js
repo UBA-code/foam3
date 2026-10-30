@@ -21,6 +21,9 @@ foam.CLASS({
       - FSMDAO operates unchanged when given a NamedPropertyInfo — proving
         the wrapper is transparent to the existing PropertyInfo-mode
         constructor and to the String-constructor convenience path
+      - FSMDAO refuses a save when the class declares the property but the
+        by-name lookup misses it, and still saves a class that has
+        no such property
   `,
 
   javaImports: [
@@ -50,6 +53,8 @@ foam.CLASS({
         runOne(x, "testCompareToIsNameBased");
         runOne(x, "testFSMDAOWithDelegateFullLifecycle");
         runOne(x, "testFSMDAOStringConstructorRoutesThroughDelegate");
+        runOne(x, "testFSMDAORefusesSaveWhenDeclaredStatusUnreadable");
+        runOne(x, "testFSMDAOSavesClassWithoutStatus");
       `
     },
     {
@@ -228,6 +233,51 @@ foam.CLASS({
             "string-ctor FSMDAO records history; length=" +
               (hist == null ? "null" : String.valueOf(hist.length)));
         }
+      `
+    },
+    {
+      name: 'testFSMDAORefusesSaveWhenDeclaredStatusUnreadable',
+      args: [{ name: 'x', type: 'Context' }],
+      javaCode: `
+        // The class still declares status, but its by-name table has lost
+        // the entry, so the lookup returns null.
+        java.util.Map byName;
+        try {
+          java.lang.reflect.Field f = foam.lang.ClassInfoImpl.class.getDeclaredField("axiomsByName_");
+          f.setAccessible(true);
+          byName = (java.util.Map) f.get(TestStateMachineHolder.getOwnClassInfo());
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+
+        DAO mdao = new MDAO(TestStateMachineHolder.getOwnClassInfo());
+        DAO dao  = new FSMDAO(x, "status", mdao);
+        TestStateMachineHolder h = new TestStateMachineHolder.Builder(x)
+          .setId(124L).setStatus(TestStateMachine.ACTIVE).build();
+
+        byName.remove("status");
+        String err = "";
+        try { dao.put(h); }
+        catch (RuntimeException e) { err = e.getMessage(); }
+        finally { byName.put("status", TestStateMachineHolder.STATUS); }
+
+        test(err.contains("save refused"),
+          "save refused when status is declared but unreadable; got: " + err);
+        test(mdao.find(124L) == null, "nothing was stored");
+      `
+    },
+    {
+      name: 'testFSMDAOSavesClassWithoutStatus',
+      args: [{ name: 'x', type: 'Context' }],
+      javaCode: `
+        // A class with no status property keeps the quiet pass-through.
+        DAO mdao = new MDAO(foam.lang.test.DateTimeTestModel.getOwnClassInfo());
+        DAO dao  = new FSMDAO(x, "status", mdao);
+        String err = "";
+        try { dao.put(new foam.lang.test.DateTimeTestModel.Builder(x).setId(1L).build()); }
+        catch (RuntimeException e) { err = e.getMessage(); }
+        test(err.isEmpty() && mdao.find(1L) != null,
+          "class without status is saved unchanged; err: " + err);
       `
     }
   ]

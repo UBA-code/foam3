@@ -101,6 +101,13 @@ public class FSMDAO
       if ( newStateObj != null ) {
         foam.core.logger.StdoutLogger.instance().warning("! (newStateObj instanceof StateMachineEnum) ===>" + newStateObj.getClass());
         // System.out.println("! (newStateObj instanceof StateMachineEnum) ===>" + newStateObj.getClass() );
+      } else if ( declaresProperty(obj, prop_.getName()) ) {
+        // The class declares the property but the lookup by name missed it, so
+        // delegating would skip every guard and callback. Refuse.
+        throw new RuntimeException(
+          "FSMDAO: " + obj.getClass().getName() + " declares '" + prop_.getName() +
+          "' but its value could not be read; save refused"
+        );
       }
       return getDelegate().put_(x, obj);
     }
@@ -331,6 +338,15 @@ public class FSMDAO
     // scheduledTime == 0 (default): leave untouched — onEnter may have already set a deadline
   }
 
+
+  // Scans the class's axiom list rather than its by-name table, so it still
+  // finds the property when the by-name lookup has lost it.
+  protected static boolean declaresProperty(FObject obj, String name) {
+    for ( Object a : obj.getClassInfo().getAxioms() ) {
+      if ( a instanceof PropertyInfo && name.equals(((PropertyInfo) a).getName()) ) return true;
+    }
+    return false;
+  }
 
   /*
   protected static PropertyInfo findStateMachineProp(ClassInfo classInfo) {
